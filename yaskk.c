@@ -4,14 +4,20 @@
 #include "load.h"
 
 bool loop_flag = true;
+int master;
 struct termios save_tm;
 
 void handler(int signo)
 {
 	extern bool loop_flag;
+	struct winsize wsize;
 
 	if (signo == SIGCHLD)
 		loop_flag = false;
+	else if (signo == SIGWINCH) {
+		ioctl(STDIN_FILENO, TIOCGWINSZ, &wsize);
+		ioctl(master, TIOCSWINSZ, &wsize);
+	}
 }
 
 void set_rawmode(int fd, struct termios *save_tm)
@@ -51,6 +57,7 @@ void init(struct skk_t *skk)
 	sigact.sa_handler = handler;
 	sigact.sa_flags = SA_RESTART;
 	sigaction(SIGCHLD, &sigact, NULL);
+	sigaction(SIGWINCH, &sigact, NULL);
 
 	set_rawmode(STDIN_FILENO, &save_tm);
 }
@@ -98,6 +105,7 @@ int main(int argc, char *argv[])
 	ioctl(STDIN_FILENO, TIOCGWINSZ, &wsize);
 
 	pid = eforkpty(&skk.fd, NULL, &save_tm, &wsize);
+	master = skk.fd;
 	if (pid == 0) /* child */
 		eexecvp(cmd, (char *const []){cmd, NULL});
 

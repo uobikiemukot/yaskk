@@ -79,7 +79,8 @@ void change_mode(struct skk_t *skk, int mode)
 		skk->mode |= MODE_APPEND;
 	}
 
-	fprintf(stderr, "\tmode changed:%s\n", mode_str[skk->mode]);
+	if (DEBUG)
+		fprintf(stderr, "\tmode changed:%s\n", mode_str[skk->mode]);
 }
 
 /* search */
@@ -89,6 +90,9 @@ struct triplet_t *map_lookup(struct map_t *mp, const char *key, int len)
 
 	low = 0;
 	high = mp->count - 1;
+
+	if (DEBUG)
+		fprintf(stderr, "\tmap lookup key:%s len:%d\n", key, len);
 
 	while (low <= high) {
 		mid = (low + high) / 2;
@@ -111,6 +115,9 @@ struct entry_t *table_lookup(struct table_t *tp, const char *key)
 
 	low = 0;
 	high = tp->count - 1;
+
+	if (DEBUG)
+		fprintf(stderr, "\ttable lookup key:%s\n", key);
 
 	while (low <= high) {
 		mid = (low + high) / 2;
@@ -203,7 +210,8 @@ void redraw_buffer(struct skk_t *skk)
 
 	skk->pwrote = write_list(skk->fd, &skk->preedit, list_size(&skk->preedit));
 
-	fprintf(stderr, "\trefresh preedit pwrote:%d kwrote:%d\n", skk->pwrote, skk->kwrote);
+	if (DEBUG)
+		fprintf(stderr, "\trefresh preedit pwrote:%d kwrote:%d\n", skk->pwrote, skk->kwrote);
 }
 
 void write_buffer(struct skk_t *skk, struct triplet_t *tp, bool is_double_consonant)

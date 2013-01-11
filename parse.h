@@ -257,7 +257,7 @@ void parse(struct skk_t *skk, char *buf, int size)
 			fprintf(stderr, "i:%d c:%c\n", i, c);
 
 		if (mode_check(skk, &c))
-			break;
+			continue;
 
 		if (c < SPACE || c >= DEL)
 			parse_control(skk, c);

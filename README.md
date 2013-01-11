@@ -10,7 +10,7 @@ yet another skk for terminal
 -	辞書登録は今のところなし
 -	UTF-8のみ対応(辞書・出力)
 
-skkの辞書を流用する場合はUTF-8に変換して注釈を消してください．
+※skkの辞書はそのままでは流用できません
 
 # mode
 

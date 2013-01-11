@@ -70,6 +70,7 @@ void die()
 	memset(&sigact, 0, sizeof(struct sigaction));
 	sigact.sa_handler = SIG_DFL;
 	sigaction(SIGCHLD, &sigact, NULL);
+	sigaction(SIGWINCH, &sigact, NULL);
 
 	tcsetattr(STDIN_FILENO, TCSAFLUSH, &save_tm);
 }

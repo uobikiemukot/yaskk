@@ -8,9 +8,10 @@ yet another skk for terminal
 以下のような制限があります
 -	全英・半角カナのモードは存在しない
 -	辞書登録は今のところなし
--	出力はUTF-8のみ
+-	UTF-8のみ対応(辞書・出力)
 
-<!--
+skkの辞書を流用する場合はUTF-8に変換して注釈を消してください．
+
 # mode
 
 ## ASCII (MODE_ASCII)
@@ -50,7 +51,7 @@ yet another skk for terminal
 ~~~
 
 ## 確定待ち (MODE_APPEND)
--	
+-	促音以外のかな変換が確定すると自動で選択モードへ移行
 
 ~~~
 ▽よみがえ*っt
@@ -115,7 +116,6 @@ upper | ^ Ctrl+J                    ^ l (確定後にASCIIモードへ)
              Ctrl+J: ひら or カタ モードへ戻る
              ESC: 変換モードへ戻る
 ~~~
--->
 
 ## license
 Copyright (c) 2012 haru (uobikiemukot at gmail dot com)

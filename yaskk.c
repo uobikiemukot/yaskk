@@ -3,8 +3,8 @@
 #include "parse.h"
 #include "load.h"
 
+int master = -1; /* master of pseudo terminal */
 bool loop_flag = true;
-int master;
 struct termios save_tm;
 
 void handler(int signo)
@@ -40,6 +40,14 @@ void init(struct skk_t *skk)
 	extern struct termios save_tm;
 	struct sigaction sigact;
 
+	memset(&sigact, 0, sizeof(struct sigaction));
+	sigact.sa_handler = handler;
+	sigact.sa_flags = SA_RESTART;
+	sigaction(SIGCHLD, &sigact, NULL);
+	sigaction(SIGWINCH, &sigact, NULL);
+
+	set_rawmode(STDIN_FILENO, &save_tm);
+
 	skk->key = skk->preedit = skk->append = NULL;
 	skk->pwrote = skk->kwrote = 0;
 	skk->mode = MODE_ASCII;
@@ -52,14 +60,6 @@ void init(struct skk_t *skk)
 
 	load_map(&skk->rom2kana);
 	skk->candidate.fp = load_dict(&skk->okuri_ari, &skk->okuri_nasi);
-
-	memset(&sigact, 0, sizeof(struct sigaction));
-	sigact.sa_handler = handler;
-	sigact.sa_flags = SA_RESTART;
-	sigaction(SIGCHLD, &sigact, NULL);
-	sigaction(SIGWINCH, &sigact, NULL);
-
-	set_rawmode(STDIN_FILENO, &save_tm);
 }
 
 void die()
@@ -86,7 +86,7 @@ void check_fds(fd_set *fds, struct timeval *tv, int stdin, int master)
 
 int main(int argc, char *argv[])
 {
-	struct skk_t skk;
+	extern int master;
 	char buf[BUFSIZE];
 	char *cmd;
 	ssize_t size;
@@ -94,6 +94,7 @@ int main(int argc, char *argv[])
 	fd_set fds;
 	struct timeval tv;
 	struct winsize wsize;
+	struct skk_t skk;
 
 	/* init */
 	if (atexit(die) != 0)
@@ -104,21 +105,22 @@ int main(int argc, char *argv[])
 	cmd = (argc < 2) ? exec_cmd: argv[1];
 	ioctl(STDIN_FILENO, TIOCGWINSZ, &wsize);
 
-	pid = eforkpty(&skk.fd, NULL, &save_tm, &wsize);
-	master = skk.fd;
+	pid = eforkpty(&master, NULL, &save_tm, &wsize);
 	if (pid == 0) /* child */
 		eexecvp(cmd, (char *const []){cmd, NULL});
 
 	/* main loop */
 	while (loop_flag) {
-		check_fds(&fds, &tv, STDIN_FILENO, skk.fd);
+		check_fds(&fds, &tv, STDIN_FILENO, master);
 		if (FD_ISSET(STDIN_FILENO, &fds)) {
 			size = read(STDIN_FILENO, buf, BUFSIZE);
-			if (size > 0)
+			if (size > INPUT_LIMIT)
+				write(master, buf, size);
+			else if (size > 0)
 				parse(&skk, buf, size);
 		}
-		if (FD_ISSET(skk.fd, &fds)) {
-			size = read(skk.fd, buf, BUFSIZE);
+		if (FD_ISSET(master, &fds)) {
+			size = read(master, buf, BUFSIZE);
 			if (size > 0)
 				write(STDOUT_FILENO, buf, size);
 		}

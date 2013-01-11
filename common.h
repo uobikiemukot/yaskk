@@ -22,6 +22,7 @@
 #include "args.h"
 
 enum ctrl_chars {
+	NUL = 0x00,
 	BS = 0x08, /* backspace */
 	LF = 0x0A, /* LF */
 	ESC = 0x1B,
@@ -34,6 +35,7 @@ enum misc {
 	RESET = 0x00,
 	BUFSIZE = 1024,
 	SELECT_TIMEOUT = 20000,
+	INPUT_LIMIT = 6,
 };
 
 enum mode {
@@ -41,8 +43,8 @@ enum mode {
 	MODE_HIRA = 0x02,
 	MODE_KATA = 0x04,
 	MODE_COOK = 0x08,
-	MODE_SELECT = 0x10,
-	MODE_APPEND = 0x20,
+	MODE_APPEND = 0x10,
+	MODE_SELECT = 0x20,
 };
 
 enum select {
@@ -76,7 +78,6 @@ struct candidate_t {
 };
 
 struct skk_t {
-	int fd;                               /* master of pseudo terminal */
 	int mode;                             /* input mode */
 	int pwrote, kwrote;                   /* count of wroted character count */
 	int select;                           /* candidate select status */

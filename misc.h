@@ -27,20 +27,23 @@ void utf8_delete_char(struct list_t **list)
 }
 
 /* write */
-int write_list(int fd, struct list_t **list, int size)
+int write_list(struct list_t **list, int size)
 {
+	extern int master;
 	char str[size + 1];
 
 	memset(str, '\0', size + 1);
 	list_front_n(list, str, size);
-	write(fd, str, size);
+	write(master, str, size);
 
 	return utf8_strlen(str, size);
 }
 
-int write_str(int fd, const char *str, int size)
+int write_str(const char *str, int size)
 {
-	write(fd, str, size);
+	extern int master;
+
+	write(master, str, size);
 	return utf8_strlen(str, size);
 }
 
@@ -164,8 +167,8 @@ void reset_candidate(struct skk_t *skk, bool fixed)
 	char **values = skk->candidate.parm.argv;
 
 	if (fixed && (0 <= select && select < count)) {
-		write(skk->fd, values[select], strlen(values[select]));
-		write_list(skk->fd, &skk->append, list_size(&skk->append));
+		write_str(values[select], strlen(values[select]));
+		write_list(&skk->append, list_size(&skk->append));
 	}
 
 	skk->select = SELECT_EMPTY;
@@ -177,10 +180,10 @@ void erase_buffer(struct skk_t *skk)
 	int i;
 
 	for (i = 0; i < skk->pwrote; i++)
-		write(skk->fd, backspace, 1);
+		write_str(backspace, 1);
 
 	for (i = 0; i < skk->kwrote; i++)
-		write(skk->fd, backspace, 1);
+		write_str(backspace, 1);
 
 	skk->pwrote = skk->kwrote = 0;
 }
@@ -190,31 +193,29 @@ void redraw_buffer(struct skk_t *skk)
 	const char *str;
 
 	if (skk->mode & MODE_COOK) {
-		skk->kwrote = write_str(skk->fd, mark_cook, strlen(mark_cook));
-		skk->kwrote += write_list(skk->fd, &skk->key, list_size(&skk->key));
+		skk->kwrote = write_str(mark_cook, strlen(mark_cook));
+		skk->kwrote += write_list(&skk->key, list_size(&skk->key));
 	}
 	else if (skk->mode & MODE_APPEND) {
-		skk->kwrote = write_str(skk->fd, mark_cook, strlen(mark_cook));
-		skk->kwrote += write_list(skk->fd, &skk->key, list_size(&skk->key) - 1);
-
-		skk->kwrote += write_str(skk->fd, mark_append, strlen(mark_append));
-		skk->kwrote += write_list(skk->fd, &skk->append, list_size(&skk->append));
+		skk->kwrote = write_str(mark_cook, strlen(mark_cook));
+		skk->kwrote += write_list(&skk->key, list_size(&skk->key) - 1);
+		skk->kwrote += write_str(mark_append, strlen(mark_append));
+		skk->kwrote += write_list(&skk->append, list_size(&skk->append));
 	}
 	else if (skk->mode & MODE_SELECT) {
-		skk->kwrote = write_str(skk->fd, mark_select, strlen(mark_select));
-
+		skk->kwrote = write_str(mark_select, strlen(mark_select));
 		str = skk->candidate.parm.argv[skk->select];
-		skk->kwrote += write_str(skk->fd, str, strlen(str));
-		skk->kwrote += write_list(skk->fd, &skk->append, list_size(&skk->append));
+		skk->kwrote += write_str(str, strlen(str));
+		skk->kwrote += write_list(&skk->append, list_size(&skk->append));
 	}
 
-	skk->pwrote = write_list(skk->fd, &skk->preedit, list_size(&skk->preedit));
+	skk->pwrote = write_list(&skk->preedit, list_size(&skk->preedit));
 
 	if (DEBUG)
 		fprintf(stderr, "\trefresh preedit pwrote:%d kwrote:%d\n", skk->pwrote, skk->kwrote);
 }
 
-void write_buffer(struct skk_t *skk, struct triplet_t *tp, bool is_double_consonant)
+bool write_buffer(struct skk_t *skk, struct triplet_t *tp, bool is_double_consonant)
 {
 	int len;
 	char *val;
@@ -227,27 +228,43 @@ void write_buffer(struct skk_t *skk, struct triplet_t *tp, bool is_double_conson
 		list_push_back_n(&skk->key, val, len);
 	else if (skk->mode & MODE_APPEND) {
 		list_push_back_n(&skk->append, val, len);
-		if (!is_double_consonant)
+		if (!is_double_consonant) {
 			change_mode(skk, MODE_SELECT);
+			return true;
+		}
 	}
 	else
-		write(skk->fd, val, len);
+		write_str(val, len);
+
+	return false;
 }
 
-void delete_char(struct skk_t *skk, char c)
+void delete_buffer(struct skk_t *skk, char c)
 {
-	if (list_size(&skk->preedit) > 0)
+	if (DEBUG)
+		fprintf(stderr, "key:%d append:%d preedit:%d\n",
+			list_size(&skk->key), list_size(&skk->append), list_size(&skk->preedit));
+	
+	if (list_size(&skk->preedit) > 0) {
 		list_erase_back(&skk->preedit);
-	else if (list_size(&skk->append) > 0)
+		if (skk->mode & MODE_APPEND && list_size(&skk->append) == 0) {
+			change_mode(skk, MODE_COOK);
+			list_erase_back(&skk->key);
+		}
+	}
+	else if (list_size(&skk->append) > 0) {
 		utf8_delete_char(&skk->append);
+		if (list_size(&skk->append) == 0) {
+			change_mode(skk, MODE_COOK);
+			list_erase_back(&skk->key);
+		}
+	}
 	else if (list_size(&skk->key) > 0)
 		utf8_delete_char(&skk->key);
-	else if (skk->mode & MODE_APPEND)
-		change_mode(skk, ~MODE_APPEND);
 	else if (skk->mode & MODE_COOK)
 		change_mode(skk, ~MODE_COOK);
 	else
-		write(skk->fd, &c, 1);
+		write_str(&c, 1);
 }
 
 void reset_buffer(struct skk_t *skk)

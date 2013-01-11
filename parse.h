@@ -3,65 +3,88 @@ bool mode_check(struct skk_t *skk, char *c)
 	if (skk->mode & MODE_ASCII) {
 		if (*c == LF) {
 			change_mode(skk, MODE_HIRA);
+			reset_buffer(skk);
 			return true;
 		}
 	}
 	else if (skk->mode & MODE_COOK) {
-		if (*c == SPACE) {
+		if (*c == LF) {
+			change_mode(skk, ~MODE_COOK);
+			write_list(&skk->key, list_size(&skk->key));
+			reset_buffer(skk);
+			return true;
+		}
+		else if (*c == ESC) {
+			change_mode(skk, ~MODE_COOK);
+			reset_buffer(skk);
+			return true;
+		}
+		else if (*c == SPACE) {
 			change_mode(skk, MODE_SELECT);
 			list_erase_front_n(&skk->preedit, list_size(&skk->preedit));
 		}
 		else if (isupper(*c)) {
 			*c = tolower(*c);
-			if (list_size(&skk->key) <= 0)
-				return false;
-
-			change_mode(skk, MODE_APPEND);
-			if (list_size(&skk->preedit) > 0
-				&& (*c == 'a' || *c == 'i' || *c == 'u' || *c == 'e' || *c == 'o'))
-				list_push_back(&skk->key, list_back(&skk->preedit));
-			else
-				list_push_back(&skk->key, *c);
-		}
-		else if (*c == LF) {
-			change_mode(skk, ~MODE_COOK);
-			write_list(skk->fd, &skk->key, list_size(&skk->key));
-			return true;
+			if (list_size(&skk->key) > 0) {
+				change_mode(skk, MODE_APPEND);
+				if (list_size(&skk->preedit) > 0
+					&& (*c == 'a' || *c == 'i' || *c == 'u' || *c == 'e' || *c == 'o'))
+					list_push_back(&skk->key, list_front(&skk->preedit));
+				else
+					list_push_back(&skk->key, *c);
+			}
 		}
 	}
 	else if (skk->mode & MODE_APPEND) {
-		if (isupper(*c))
+		if (*c == LF) {
+			change_mode(skk, ~MODE_APPEND);
+			list_erase_back(&skk->key);
+			write_list(&skk->key, list_size(&skk->key));
+			reset_buffer(skk);
+			return true;
+		}
+		else if (*c == ESC) {
+			change_mode(skk, MODE_COOK);
+			list_erase_back(&skk->key);
+			list_erase_front_n(&skk->preedit, list_size(&skk->preedit));
+			list_erase_front_n(&skk->append, list_size(&skk->append));
+			return true;
+		}
+		else if (isupper(*c))
 			*c = tolower(*c);
 	}
 	else if (skk->mode & MODE_SELECT) {
-		if (*c == ESC) {
-			reset_candidate(skk, false);
-			list_erase_front_n(&skk->preedit, list_size(&skk->preedit));
-			change_mode(skk, ~MODE_SELECT);
-			*c = '\0';
-		}
-		else if (*c == LF) {
+		if (*c == LF) {
 			reset_candidate(skk, true);
-			reset_buffer(skk);
 			change_mode(skk, ~MODE_SELECT);
+			reset_buffer(skk);
+			return true;
+		}
+		else if (*c == ESC) {
+			reset_candidate(skk, false);
+			change_mode(skk, MODE_COOK);
+			if (islower(list_back(&skk->key)))
+				list_erase_back(&skk->key);
+			list_erase_front_n(&skk->preedit, list_size(&skk->preedit));
+			list_erase_front_n(&skk->append, list_size(&skk->append));
 			return true;
 		}
 		else if (*c == 'l') {
 			reset_candidate(skk, true);
-			reset_buffer(skk);
 			change_mode(skk, MODE_ASCII);
+			reset_buffer(skk);
 			return true;
 		}
 		else if (*c == 'q') {
 			reset_candidate(skk, true);
-			reset_buffer(skk);
 			change_mode(skk, (skk->mode & MODE_HIRA) ? MODE_KATA: MODE_HIRA);
+			reset_buffer(skk);
 			return true;
 		}
 		else if (*c != SPACE && *c != 'x') {
 			reset_candidate(skk, true);
-			reset_buffer(skk);
 			change_mode(skk, ~MODE_SELECT);
+			reset_buffer(skk);
 
 			if (isupper(*c)) {
 				change_mode(skk, MODE_COOK);
@@ -70,12 +93,19 @@ bool mode_check(struct skk_t *skk, char *c)
 		}
 	}
 	else if (skk->mode & MODE_HIRA || skk->mode & MODE_KATA) {
-		if (*c == 'l' && list_back(&skk->preedit) != 'z') {
+		if (*c == SPACE && list_back(&skk->preedit) != 'z') {
+			list_erase_front_n(&skk->preedit, list_size(&skk->preedit));
+			write_str(c, 1);
+			return true;
+		}
+		else if (*c == 'l' && list_back(&skk->preedit) != 'z') {
 			change_mode(skk, MODE_ASCII);
+			reset_buffer(skk);
 			return true;
 		}
 		else if (*c == 'q') {
 			change_mode(skk, (skk->mode & MODE_HIRA) ? MODE_KATA: MODE_HIRA);
+			reset_buffer(skk);
 			return true;
 		}
 		else if (isupper(*c)) {
@@ -86,45 +116,47 @@ bool mode_check(struct skk_t *skk, char *c)
 	return false;
 }
 
-void parse_control(struct skk_t *sp, char c)
+void parse_control(struct skk_t *skk, char c)
 {
 	if (DEBUG)
 		fprintf(stderr, "\tparse control c:0x%.2X\n", c);
 
 	if (c == BS)
-		delete_char(sp, c);
+		delete_buffer(skk, c);
+	else if (c == LF)
+		; /* ignore */
 	else
-		write(sp->fd, &c, 1);
+		write_str(&c, 1);
 }
 
-void parse_ascii(struct skk_t *sp, char c)
+void parse_ascii(struct skk_t *skk, char c)
 {
-	write(sp->fd, &c, 1);
+	write_str(&c, 1);
 }
 
-void parse_select(struct skk_t *sp, char c, int size)
+void parse_select(struct skk_t *skk, char c, int size)
 {
 	char str[size + 1];
 	struct entry_t *ep;
 	struct table_t *tp;
 
 	memset(str, '\0', size + 1);
-	list_front_n(&sp->key, str, size);
+	list_front_n(&skk->key, str, size);
 
 	if (DEBUG)
-		fprintf(stderr, "\tparse select str:%s select:%d\n", str, sp->select);
-	tp = (c == SPACE) ? &sp->okuri_nasi: &sp->okuri_ari;
+		fprintf(stderr, "\tparse select str:%s select:%d\n", str, skk->select);
+	tp = (c == SPACE) ? &skk->okuri_nasi: &skk->okuri_ari;
 
-	if (sp->select >= SELECT_LOADED) {
+	if (skk->select >= SELECT_LOADED) {
 		if (c == SPACE) {
-			sp->select++;
-			if (sp->select >= sp->candidate.parm.argc)
-				sp->select = SELECT_LOADED; /* dictionary mode: not implemented */
+			skk->select++;
+			if (skk->select >= skk->candidate.parm.argc)
+				skk->select = SELECT_LOADED; /* dictionary mode: not implemented */
 		}
 		else if (c == 'x') {
-			sp->select--;
-			if (sp->select < 0)  {
-				sp->select = sp->candidate.parm.argc - 1;
+			skk->select--;
+			if (skk->select < 0)  {
+				skk->select = skk->candidate.parm.argc - 1;
 				/*
 				change_mode(skk, MODE_COOK);
 				reset_candidate(skk, false);
@@ -136,15 +168,15 @@ void parse_select(struct skk_t *sp, char c, int size)
 	else if ((ep = table_lookup(tp, str)) != NULL) {
 		if (DEBUG)
 			fprintf(stderr, "\tmatched!\n");
-		if (get_candidate(&sp->candidate, ep))
-			sp->select = SELECT_LOADED;
+		if (get_candidate(&skk->candidate, ep))
+			skk->select = SELECT_LOADED;
 		else
-			change_mode(sp, MODE_COOK);
+			change_mode(skk, MODE_COOK);
 	}
 	else {
 		if (DEBUG)
 			fprintf(stderr, "\tunmatched!\n");
-		change_mode(sp, MODE_COOK);
+		change_mode(skk, MODE_COOK);
 	}
 }
 
@@ -175,7 +207,10 @@ void parse_kana(struct skk_t *skk, int len)
 			is_double_consonant = true;
 			list_push_front(&skk->preedit, str[0]);
 		}
-		write_buffer(skk, tp, is_double_consonant);
+
+		if (write_buffer(skk, tp, is_double_consonant))
+			parse_select(skk, NUL, list_size(&skk->key));
+
 		list_erase_front_n(&skk->preedit, len);
 	}
 	else {
@@ -218,10 +253,13 @@ void parse(struct skk_t *skk, char *buf, int size)
 
 	for (i = 0; i < size; i++) {
 		c = buf[i];
+		if (DEBUG)
+			fprintf(stderr, "i:%d c:%c\n", i, c);
 
 		if (mode_check(skk, &c))
-			reset_buffer(skk);
-		else if (c < SPACE || c >= DEL)
+			break;
+
+		if (c < SPACE || c >= DEL)
 			parse_control(skk, c);
 		else if (skk->mode & MODE_ASCII)
 			parse_ascii(skk, c);
@@ -230,9 +268,6 @@ void parse(struct skk_t *skk, char *buf, int size)
 		else if (skk->mode & MODE_HIRA || skk->mode & MODE_KATA) {
 			list_push_back(&skk->preedit, c);
 			parse_kana(skk, 1);
-
-			if (skk->mode & MODE_SELECT)
-				parse_select(skk, c, list_size(&skk->key));
 		}
 	}
 	redraw_buffer(skk);

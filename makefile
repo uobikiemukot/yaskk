@@ -1,9 +1,6 @@
 CC = gcc
-CFLAGS = -Wall -std=c99 -pedantic \
-	-march=native -Os -pipe -Wall
-	#-march=native -Ofast -flto -pipe -s
-	#-pg -g -rdynamic
-LDFLAGS =
+CFLAGS += -std=c99 -pedantic -Wall
+LDFLAGS +=
 
 HDR = *.h
 DST = yaskk

@@ -75,7 +75,6 @@ yet another skk for terminal
 	| 変換候補
 	選択中のマーク
 ~~~
--->
 
 # 状態遷移
 
@@ -116,6 +115,7 @@ upper | ^ Ctrl+J                    ^ l (確定後にASCIIモードへ)
              Ctrl+J: ひら or カタ モードへ戻る
              ESC: 変換モードへ戻る
 ~~~
+-->
 
 ## license
 Copyright (c) 2012 haru (uobikiemukot at gmail dot com)

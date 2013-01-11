@@ -44,21 +44,6 @@ void efclose(FILE *fp)
 		error("fclose");
 }
 
-void *emmap(int addr, size_t len, int prot, int flag, int fd, off_t offset)
-{
-	uint32_t *fp;
-
-	if ((fp = (uint32_t *) mmap(0, len, prot, flag, fd, offset)) == MAP_FAILED)
-		error("mmap");
-	return fp;
-}
-
-void emunmap(void *ptr, size_t len)
-{
-	if (munmap(ptr, len) < 0)
-		error("munmap");
-}
-
 void *emalloc(size_t size)
 {
 	void *p;

@@ -129,7 +129,7 @@ void parse_control(struct skk_t *skk, char c)
 	if (DEBUG)
 		fprintf(stderr, "\tparse control c:0x%.2X\n", c);
 
-	if (c == DEL)
+	if (c == DEL) /* for Mac OS X */
 		c = BS;
 
 	if (c == BS)

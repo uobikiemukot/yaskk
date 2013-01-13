@@ -63,7 +63,7 @@ void eselect(int max_fd, fd_set *rd, fd_set *wr, fd_set *err, struct timeval *tv
 	}
 }
 
-void ewrite(int fd, void *buf, int size)
+void ewrite(int fd, const void *buf, int size)
 {
 	int ret;
 
@@ -137,17 +137,3 @@ pid_t eforkpty(int *master, char *name, struct termios *termp, struct winsize *w
 
 	return pid;
 }
-
-/*
-void efseek(FILE *fp, long offset, int whence)
-{
-	if (fseek(fp, offset, whence) < 0)
-		error("fseek");
-}
-
-void efgets(char *buf, int size, FILE *fp)
-{
-	if (fgets(buf, size, fp) == NULL)
-		error("fgets");
-}
-*/

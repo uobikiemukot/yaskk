@@ -2,8 +2,8 @@
 char *const exec_cmd = "bash";
 
 /* load files */
-char *map_file = "/opt/skk/map.sort";
-char *dict_file = "/opt/skk/dict.sort";
+char *map_file = "/path/to/map.sort";
+char *dict_file = "/path/to/dict.sort";
 
 /* mark */
 const char *mark_cook = "▽";

@@ -10,7 +10,7 @@ bool mode_check(struct skk_t *skk, char *c)
 	else if (skk->mode & MODE_COOK) {
 		if (*c == LF) {
 			change_mode(skk, ~MODE_COOK);
-			write_list(&skk->key, list_size(&skk->key));
+			write_list(skk->fd, &skk->key, list_size(&skk->key));
 			reset_buffer(skk);
 			return true;
 		}
@@ -39,7 +39,7 @@ bool mode_check(struct skk_t *skk, char *c)
 		if (*c == LF) {
 			change_mode(skk, ~MODE_APPEND);
 			list_erase_back(&skk->key);
-			write_list(&skk->key, list_size(&skk->key));
+			write_list(skk->fd, &skk->key, list_size(&skk->key));
 			reset_buffer(skk);
 			return true;
 		}
@@ -93,9 +93,15 @@ bool mode_check(struct skk_t *skk, char *c)
 		}
 	}
 	else if (skk->mode & MODE_HIRA || skk->mode & MODE_KATA) {
-		if (*c == SPACE && list_back(&skk->preedit) != 'z') {
+		if (*c == ESC) { /* for vi */
+			change_mode(skk, MODE_ASCII);
+			reset_buffer(skk);
+		}
+		else if (*c == SPACE && list_back(&skk->preedit) == 'z') /* for "z " */
+			;
+		else if (*c == SPACE) {
 			list_erase_front_n(&skk->preedit, list_size(&skk->preedit));
-			write_str(c, 1);
+			write_str(skk->fd, c, 1);
 			return true;
 		}
 		else if (*c == 'l' && list_back(&skk->preedit) != 'z') {
@@ -108,6 +114,8 @@ bool mode_check(struct skk_t *skk, char *c)
 			reset_buffer(skk);
 			return true;
 		}
+		else if (*c == 'L' && list_back(&skk->preedit) == 'z') /* for "zL" */
+			;
 		else if (isupper(*c)) {
 			change_mode(skk, MODE_COOK);
 			*c = tolower(*c);
@@ -121,17 +129,20 @@ void parse_control(struct skk_t *skk, char c)
 	if (DEBUG)
 		fprintf(stderr, "\tparse control c:0x%.2X\n", c);
 
+	if (c == DEL)
+		c = BS;
+
 	if (c == BS)
 		delete_buffer(skk, c);
 	else if (c == LF)
 		; /* ignore */
 	else
-		write_str(&c, 1);
+		write_str(skk->fd, &c, 1);
 }
 
 void parse_ascii(struct skk_t *skk, char c)
 {
-	write_str(&c, 1);
+	write_str(skk->fd, &c, 1);
 }
 
 void parse_select(struct skk_t *skk, char c, int size)
@@ -248,7 +259,6 @@ void parse(struct skk_t *skk, char *buf, int size)
 		buf[size] = '\0';
 		fprintf(stderr, "start parse buf:%s size:%d mode:%s\n", buf, size, mode_str[skk->mode]);
 	}
-
 	erase_buffer(skk);
 
 	for (i = 0; i < size; i++) {

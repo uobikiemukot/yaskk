@@ -7,7 +7,7 @@ void load_map(struct map_t *mp)
 	fp = efopen(map_file, "r");
 
 	while (fgets(buf, BUFSIZE, fp) != NULL) {
-		if (strlen(buf) == 0 || buf[0] == '#')
+		if (strlen(buf) == 0)
 			continue;
 
 		num = sscanf(buf, "%[^\t]\t%s\t%s", key, hira, kata);

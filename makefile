@@ -1,23 +1,14 @@
 CC = gcc
-CFLAGS = -Wall -std=c99 -pedantic \
-	-march=native -Ofast -flto -pipe -Wall
-LDFLAGS =
+CFLAGS += -Wall -std=c99 -pedantic
+LDFLAGS +=
 
-HDR = ../*.h
-DST = yasf yass sortdic sortmap
+HDR = *.h
+DST = yaskk
+SRC = yaskk.c
 
 all: $(DST)
 
-yasf: yasf.c $(HDR)
-	$(CC) $< $(CFLAGS) $(LDFLAGS) -o $@
-
-yass: yass.c $(HDR)
-	$(CC) $< $(CFLAGS) $(LDFLAGS) -o $@
-
-sortdic: sortdic.c $(HDR)
-	$(CC) $< $(CFLAGS) $(LDFLAGS) -o $@
-
-sortmap: sortmap.c $(HDR)
+$(DST): $(SRC) $(HDR)
 	$(CC) $< $(CFLAGS) $(LDFLAGS) -o $@
 
 clean:

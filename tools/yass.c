@@ -3,9 +3,6 @@
 #include "../parse.h"
 #include "../load.h"
 
-int master = -1; /* master of pseudo terminal */
-struct termios save_tm;
-
 void set_rawmode(int fd, struct termios *save_tm)
 {
 	struct termios tm;
@@ -23,11 +20,7 @@ void set_rawmode(int fd, struct termios *save_tm)
 
 void init(struct skk_t *skk)
 {
-	extern struct termios save_tm;
-
-	set_rawmode(STDIN_FILENO, &save_tm);
-
-	master = STDOUT_FILENO;
+	skk->fd = STDOUT_FILENO;
 	skk->key = skk->preedit = skk->append = NULL;
 	skk->pwrote = skk->kwrote = 0;
 	skk->mode = MODE_ASCII;
@@ -42,10 +35,9 @@ void init(struct skk_t *skk)
 	skk->candidate.fp = load_dict(&skk->okuri_ari, &skk->okuri_nasi);
 }
 
-void die()
+void die(struct termios *save_tm)
 {
-	extern struct termios save_tm;
-	tcsetattr(STDIN_FILENO, TCSAFLUSH, &save_tm);
+	tcsetattr(STDIN_FILENO, TCSAFLUSH, save_tm);
 }
 
 void check_fds(fd_set *fds, struct timeval *tv, int stdin)
@@ -59,17 +51,16 @@ void check_fds(fd_set *fds, struct timeval *tv, int stdin)
 
 int main(int argc, char *argv[])
 {
-	extern int master;
 	char buf[BUFSIZE];
 	ssize_t size;
 	fd_set fds;
-	struct timeval tv;
 	struct skk_t skk;
+	struct timeval tv;
+	struct termios save_tm;
 
 	/* init */
-	if (atexit(die) != 0)
-		fatal("atexit");
 	init(&skk);
+	set_rawmode(STDIN_FILENO, &save_tm);
 
 	/* main loop */
 	while (1) {
@@ -77,11 +68,12 @@ int main(int argc, char *argv[])
 		if (FD_ISSET(STDIN_FILENO, &fds)) {
 			size = read(STDIN_FILENO, buf, BUFSIZE);
 			if (size > INPUT_LIMIT)
-				write(master, buf, size);
+				write(skk.fd, buf, size);
 			else if (size > 0)
 				parse(&skk, buf, size);
 		}
 	}
+	die(&save_tm);
 
 	return EXIT_SUCCESS;
 }

@@ -1,13 +1,11 @@
-#include "common.h"
-#include "misc.h"
-#include "parse.h"
-#include "load.h"
-
-int master;
+#include "../common.h"
+#include "../misc.h"
+#include "../parse.h"
+#include "../load.h"
 
 void init(struct skk_t *skk)
 {
-	master = STDOUT_FILENO;
+	skk->fd = STDOUT_FILENO;
 	skk->key = skk->preedit = skk->append = NULL;
 	skk->pwrote = skk->kwrote = 0;
 	skk->mode = MODE_ASCII;
@@ -24,9 +22,9 @@ void init(struct skk_t *skk)
 
 int main(int argc, char *argv[])
 {
-	struct skk_t skk;
 	char buf[BUFSIZE];
 	ssize_t size;
+	struct skk_t skk;
 
 	/* init */
 	init(&skk);

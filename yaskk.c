@@ -3,21 +3,17 @@
 #include "parse.h"
 #include "load.h"
 
-int master = -1; /* master of pseudo terminal */
 bool loop_flag = true;
-struct termios save_tm;
+bool window_resized = false;
 
 void handler(int signo)
 {
 	extern bool loop_flag;
-	struct winsize wsize;
 
 	if (signo == SIGCHLD)
 		loop_flag = false;
-	else if (signo == SIGWINCH) {
-		ioctl(STDIN_FILENO, TIOCGWINSZ, &wsize);
-		ioctl(master, TIOCSWINSZ, &wsize);
-	}
+	else if (signo == SIGWINCH)
+		window_resized = true;
 }
 
 void set_rawmode(int fd, struct termios *save_tm)
@@ -37,7 +33,6 @@ void set_rawmode(int fd, struct termios *save_tm)
 
 void init(struct skk_t *skk)
 {
-	extern struct termios save_tm;
 	struct sigaction sigact;
 
 	memset(&sigact, 0, sizeof(struct sigaction));
@@ -46,7 +41,6 @@ void init(struct skk_t *skk)
 	sigaction(SIGCHLD, &sigact, NULL);
 	sigaction(SIGWINCH, &sigact, NULL);
 
-	set_rawmode(STDIN_FILENO, &save_tm);
 
 	skk->key = skk->preedit = skk->append = NULL;
 	skk->pwrote = skk->kwrote = 0;
@@ -62,9 +56,8 @@ void init(struct skk_t *skk)
 	skk->candidate.fp = load_dict(&skk->okuri_ari, &skk->okuri_nasi);
 }
 
-void die()
+void die(struct termios *save_tm)
 {
-	extern struct termios save_tm;
 	struct sigaction sigact;
 
 	memset(&sigact, 0, sizeof(struct sigaction));
@@ -72,7 +65,7 @@ void die()
 	sigaction(SIGCHLD, &sigact, NULL);
 	sigaction(SIGWINCH, &sigact, NULL);
 
-	tcsetattr(STDIN_FILENO, TCSAFLUSH, &save_tm);
+	tcsetattr(STDIN_FILENO, TCSAFLUSH, save_tm);
 }
 
 void check_fds(fd_set *fds, struct timeval *tv, int stdin, int master)
@@ -87,45 +80,50 @@ void check_fds(fd_set *fds, struct timeval *tv, int stdin, int master)
 
 int main(int argc, char *argv[])
 {
-	extern int master;
 	char buf[BUFSIZE];
 	char *cmd;
 	ssize_t size;
 	pid_t pid;
 	fd_set fds;
+	struct skk_t skk;
 	struct timeval tv;
 	struct winsize wsize;
-	struct skk_t skk;
+	struct termios save_tm;
 
 	/* init */
-	if (atexit(die) != 0)
-		fatal("atexit");
 	init(&skk);
+	set_rawmode(STDIN_FILENO, &save_tm);
 
 	/* fork */
 	cmd = (argc < 2) ? exec_cmd: argv[1];
 	ioctl(STDIN_FILENO, TIOCGWINSZ, &wsize);
 
-	pid = eforkpty(&master, NULL, &save_tm, &wsize);
+	pid = eforkpty(&skk.fd, NULL, &save_tm, &wsize);
 	if (pid == 0) /* child */
 		eexecvp(cmd, (char *const []){cmd, NULL});
 
 	/* main loop */
 	while (loop_flag) {
-		check_fds(&fds, &tv, STDIN_FILENO, master);
+		check_fds(&fds, &tv, STDIN_FILENO, skk.fd);
 		if (FD_ISSET(STDIN_FILENO, &fds)) {
 			size = read(STDIN_FILENO, buf, BUFSIZE);
 			if (size > INPUT_LIMIT)
-				write(master, buf, size);
+				write(skk.fd, buf, size);
 			else if (size > 0)
 				parse(&skk, buf, size);
 		}
-		if (FD_ISSET(master, &fds)) {
-			size = read(master, buf, BUFSIZE);
+		if (FD_ISSET(skk.fd, &fds)) {
+			size = read(skk.fd, buf, BUFSIZE);
 			if (size > 0)
 				write(STDOUT_FILENO, buf, size);
 		}
+		if (window_resized) {
+			window_resized = false;
+			ioctl(STDIN_FILENO, TIOCGWINSZ, &wsize);
+			ioctl(skk.fd, TIOCSWINSZ, &wsize);
+		}
 	}
+	die(&save_tm);
 
 	return EXIT_SUCCESS;
 }

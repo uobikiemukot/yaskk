@@ -45,6 +45,18 @@ enum mode {
 	MODE_SELECT = 0x20,
 };
 
+const char *mode_str[] = {
+	[MODE_ASCII] = "ascii",
+	[MODE_HIRA] = "hira",
+	[MODE_KATA] = "kata",
+	[MODE_HIRA | MODE_COOK] = "hira|cook",
+	[MODE_HIRA | MODE_SELECT] = "hira|select",
+	[MODE_HIRA | MODE_APPEND] = "hira|append",
+	[MODE_KATA | MODE_COOK] = "kata|cook",
+	[MODE_KATA | MODE_SELECT] = "kata|select",
+	[MODE_KATA | MODE_APPEND] = "kata|append",
+};
+
 enum select {
 	SELECT_EMPTY = -1,
 	SELECT_LOADED = 0,
@@ -76,6 +88,7 @@ struct candidate_t {
 };
 
 struct skk_t {
+	int fd;                               /* master of pseudo terminal */
 	int mode;                             /* input mode */
 	int pwrote, kwrote;                   /* count of wroted character count */
 	int select;                           /* candidate select status */

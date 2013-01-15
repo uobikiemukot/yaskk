@@ -1,6 +1,11 @@
 CC = gcc
 CFLAGS += -Wall -std=c99 -pedantic
 LDFLAGS +=
+OS = $(shell uname)
+
+ifeq ($(OS), Darwin)
+	CFLAGS += -D_DARWIN_C_SOURCE
+endif
 
 HDR = *.h
 DST = yaskk

@@ -1,7 +1,7 @@
 #include "common.h"
 #include "misc.h"
-#include "parse.h"
 #include "load.h"
+#include "parse.h"
 
 bool loop_flag = true;
 bool window_resized = false;
@@ -41,7 +41,6 @@ void init(struct skk_t *skk)
 	sigaction(SIGCHLD, &sigact, NULL);
 	sigaction(SIGWINCH, &sigact, NULL);
 
-
 	skk->key = skk->preedit = skk->append = NULL;
 	skk->pwrote = skk->kwrote = 0;
 	skk->mode = MODE_ASCII;
@@ -52,8 +51,11 @@ void init(struct skk_t *skk)
 	skk->rom2kana.count = 0;
 	skk->rom2kana.triplets = NULL;
 
-	load_map(&skk->rom2kana);
-	skk->candidate.fp = load_dict(&skk->okuri_ari, &skk->okuri_nasi);
+	hash_init(skk->user_dict);
+
+	load_map(map_file, &skk->rom2kana);
+	load_dict(dict_file, &skk->okuri_ari, &skk->okuri_nasi);
+	load_user(user_file, skk->user_dict);
 }
 
 void die(struct termios *save_tm)
@@ -88,17 +90,16 @@ int main(int argc, char *argv[])
 	struct skk_t skk;
 	struct timeval tv;
 	struct winsize wsize;
-	struct termios save_tm;
 
 	/* init */
 	init(&skk);
-	set_rawmode(STDIN_FILENO, &save_tm);
+	set_rawmode(STDIN_FILENO, &skk.save_tm);
 
 	/* fork */
 	cmd = (argc < 2) ? exec_cmd: argv[1];
 	ioctl(STDIN_FILENO, TIOCGWINSZ, &wsize);
 
-	pid = eforkpty(&skk.fd, NULL, &save_tm, &wsize);
+	pid = eforkpty(&skk.fd, NULL, &skk.save_tm, &wsize);
 	if (pid == 0) /* child */
 		eexecvp(cmd, (char *const []){cmd, NULL});
 
@@ -123,7 +124,7 @@ int main(int argc, char *argv[])
 			ioctl(skk.fd, TIOCSWINSZ, &wsize);
 		}
 	}
-	die(&save_tm);
+	die(&skk.save_tm);
 
 	return EXIT_SUCCESS;
 }

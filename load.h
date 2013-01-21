@@ -1,10 +1,10 @@
-void load_map(struct map_t *mp)
+void load_map(const char *file, struct map_t *mp)
 {
 	int num;
 	char buf[BUFSIZE], key[KEYSIZE], hira[VALSIZE], kata[VALSIZE];
 	FILE *fp;
 
-	fp = efopen(map_file, "r");
+	fp = efopen(file, "r");
 
 	while (fgets(buf, BUFSIZE, fp) != NULL) {
 		if (strlen(buf) == 0)
@@ -31,7 +31,7 @@ void load_map(struct map_t *mp)
 	fclose(fp);
 }
 
-FILE *load_dict(struct table_t *okuri_ari, struct table_t *okuri_nasi)
+void load_dict(const char *file, struct table_t *okuri_ari, struct table_t *okuri_nasi)
 {
 	char buf[BUFSIZE], key[BUFSIZE], entry[BUFSIZE];
 	int  mode = RESET, num;
@@ -44,7 +44,7 @@ FILE *load_dict(struct table_t *okuri_ari, struct table_t *okuri_nasi)
 		READ_OKURINASI,
 	};
 
-	fp = efopen(dict_file, "r");
+	fp = efopen(file, "r");
 
 	while (fgets(buf, BUFSIZE, fp) != NULL) {
 		if (strstr(buf, ";; okuri-ari entries") != NULL) {
@@ -79,5 +79,35 @@ FILE *load_dict(struct table_t *okuri_ari, struct table_t *okuri_nasi)
 	if (DEBUG)
 		fprintf(stderr, "okuri_ari:%d okuri_nasi:%d\n", okuri_ari->count, okuri_nasi->count);
 
-	return fp;
+	fclose(fp);
+}
+
+void load_user(const char *file, struct hash_t *user_dict[])
+{
+	int i, num;
+	char buf[BUFSIZE], key[BUFSIZE], entry[BUFSIZE];
+	FILE *fp;
+	struct parm_t parm;
+
+	fp = efopen(file, "r");
+
+	while (fgets(buf, BUFSIZE, fp) != NULL) {
+		num = sscanf(buf, "%s %s", key, entry);
+		if (num != 2)
+			continue;
+
+		if (DEBUG)
+			fprintf(stderr, "key:%s entry:%s\n", key, entry);
+		
+		reset_parm(&parm);
+		parse_entry(entry, &parm, '/', not_slash);
+
+		for (i = 0; i < parm.argc; i++) {
+			if (DEBUG)
+				fprintf(stderr, "argv[%d]: %s\n", i, parm.argv[i]);
+			hash_create(user_dict, key, parm.argv[i]);
+		}
+	}
+
+	fclose(fp);
 }

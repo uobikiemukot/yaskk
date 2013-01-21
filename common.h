@@ -16,14 +16,19 @@
 #include "conf.h"
 #include "util.h"
 #include "list.h"
-#include "hash.h"
 #include "args.h"
+#include "hash.h"
+
+#define SIGWINCH 28
 
 enum ctrl_chars {
 	NUL = 0x00,
+	ETX = 0x05,
 	BS = 0x08, /* backspace */
 	LF = 0x0A, /* LF */
+	FF = 0x0C,
 	ESC = 0x1B,
+	CR = 0x0D,
 	SPACE = 0x20,
 	DEL = 0x7F,
 };
@@ -81,21 +86,19 @@ struct map_t {
 	int count;
 };
 
-struct candidate_t {
-	FILE *fp;            /* dict fp */
-	char entry[BUFSIZE]; /* buffer for entry buffer */
-	struct parm_t parm;  /* candidate of table entry */
-};
-
 struct skk_t {
 	int fd;                               /* master of pseudo terminal */
 	int mode;                             /* input mode */
-	int pwrote, kwrote;                   /* count of wroted character count */
+	int pwrote, kwrote;                   /* count of wroted characters */
 	int select;                           /* candidate select status */
+	char entry[BUFSIZE];                  /* line buffer for dictionary */
+	char stored_key[BUFSIZE];
 	struct map_t rom2kana;                /* romaji to kana map */
 	struct table_t okuri_ari, okuri_nasi; /* convert table */
+	struct hash_t *user_dict[NHASH];
 	struct list_t *key;                   /* keyword string for table lookup */
 	struct list_t *append;
 	struct list_t *preedit;               /* preedit string for map lookup */
-	struct candidate_t candidate;
+	struct parm_t parm;
+	struct termios save_tm;
 };

@@ -26,40 +26,6 @@ void utf8_delete_char(struct list_t **list)
 	}
 }
 
-/*
-void copy_list(char *dst, struct list_t **list, int size)
-{
-	int i;
-
-	if (size >= BUFSIZE)
-		size = BUFSIZE - 1;
-
-	for (i = 0; i < size; i++) {
-		dst[i] = list_front(list);
-		list_erase_front(list);
-	}
-	dst[i] = '\0';
-}
-
-bool edit_dict(struct skk_t *skk)
-{
-	int status;
-	pid_t pid;
-
-	pid = fork();
-
-	if (pid < 0)
-		return false;
-	else if (pid == 0) {
-		tcsetattr(STDIN_FILENO, TCSAFLUSH, &skk->save_tm);
-		eexecvp(editor_cmd, (char *const[]){editor_cmd, user_file, NULL});
-	}
-	wait(&status);
-
-	return true;
-}
-*/
-
 /* write */
 int write_list(int fd, struct list_t **list, int size)
 {
@@ -168,17 +134,14 @@ int not_slash(int c)
 
 bool get_candidate(struct skk_t *skk, struct entry_t *ep)
 {
-	char buf[BUFSIZE];
+	char buf[BUFSIZE], key[BUFSIZE];
 	FILE *fp;
 
-	if (ep == NULL
-		|| (fp = fopen(dict_file, "r")) == NULL
+	if ((fp = fopen(dict_file, "r")) == NULL
 		|| fseek(fp, ep->offset, SEEK_SET) < 0
 		|| fgets(buf, BUFSIZE, fp) == NULL
-		|| sscanf(buf, "%s %s", skk->stored_key, skk->entry) != 2)
+		|| sscanf(buf, "%s %s", key, skk->entry) != 2)
 		return false;
-
-	reset_parm(&skk->parm);
 	parse_entry(skk->entry, &skk->parm, '/', not_slash);
 
 	if (DEBUG)
@@ -195,10 +158,14 @@ void sort_candidate(struct skk_t *skk, char *key)
 	struct parm_t new;
 	struct hash_t *hp;
 
-	hp = hash_lookup(skk->user_dict, key, "");
-	if (hp == NULL)
+	if (DEBUG)
+		fprintf(stderr, "\tsort candidate key:%s\n", key);
+
+	if ((hp = hash_lookup(skk->user_dict, key, "")) == NULL)
 		return;
 
+	if (DEBUG)
+		fprintf(stderr, "\thash entry:%d table entry:%d\n", hp->count, skk->parm.argc);
 	reset_parm(&new);
 	//for (i = hp->count - 1; i >= 0; i--) {
 	for (i = 0; i < hp->count; i++) {

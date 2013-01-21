@@ -14,6 +14,10 @@ bool mode_check(struct skk_t *skk, char *c)
 			reset_buffer(skk);
 			return true;
 		}
+		else if (*c == 'L') {
+			load_user(user_file, skk->user_dict);
+			return true;
+		}
 		else if (*c == ESC) {
 			change_mode(skk, ~MODE_COOK);
 			reset_buffer(skk);
@@ -161,26 +165,34 @@ void parse_select(struct skk_t *skk, char c, int size)
 	if (skk->select >= SELECT_LOADED) {
 		if (c == SPACE) {
 			skk->select++;
-			if (skk->select >= skk->candidate.parm.argc)
+			if (skk->select >= skk->parm.argc)
 				skk->select = SELECT_LOADED; /* dictionary mode: not implemented */
 		}
 		else if (c == 'x') {
 			skk->select--;
-			if (skk->select < 0)  {
-				skk->select = skk->candidate.parm.argc - 1;
-				/*
-				change_mode(skk, MODE_COOK);
-				reset_candidate(skk, false);
-				list_erase_front_n(&skk->preedit, list_size(&skk->preedit));
-				*/
-			}
+			if (skk->select < 0) 
+				skk->select = skk->parm.argc - 1;
 		}
 	}
+	else {
+		ep = table_lookup(tp, str);
+		get_candidate(skk, ep);
+		sort_candidate(skk, str);
+
+		if (skk->parm.argc > 0)
+			skk->select = SELECT_LOADED;
+		else
+			change_mode(skk, MODE_COOK);
+	}
+
+	/*
 	else if ((ep = table_lookup(tp, str)) != NULL) {
 		if (DEBUG)
 			fprintf(stderr, "\tmatched!\n");
-		if (get_candidate(&skk->candidate, ep))
+		if (get_candidate(skk, ep)) {
+			sort_candidate(skk, str);
 			skk->select = SELECT_LOADED;
+		}
 		else
 			change_mode(skk, MODE_COOK);
 	}
@@ -189,6 +201,7 @@ void parse_select(struct skk_t *skk, char c, int size)
 			fprintf(stderr, "\tunmatched!\n");
 		change_mode(skk, MODE_COOK);
 	}
+	*/
 }
 
 void parse_kana(struct skk_t *skk, int len)

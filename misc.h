@@ -26,6 +26,40 @@ void utf8_delete_char(struct list_t **list)
 	}
 }
 
+/*
+void copy_list(char *dst, struct list_t **list, int size)
+{
+	int i;
+
+	if (size >= BUFSIZE)
+		size = BUFSIZE - 1;
+
+	for (i = 0; i < size; i++) {
+		dst[i] = list_front(list);
+		list_erase_front(list);
+	}
+	dst[i] = '\0';
+}
+
+bool edit_dict(struct skk_t *skk)
+{
+	int status;
+	pid_t pid;
+
+	pid = fork();
+
+	if (pid < 0)
+		return false;
+	else if (pid == 0) {
+		tcsetattr(STDIN_FILENO, TCSAFLUSH, &skk->save_tm);
+		eexecvp(editor_cmd, (char *const[]){editor_cmd, user_file, NULL});
+	}
+	wait(&status);
+
+	return true;
+}
+*/
+
 /* write */
 int write_list(int fd, struct list_t **list, int size)
 {
@@ -49,7 +83,8 @@ void change_mode(struct skk_t *skk, int mode)
 {
 	if (mode == MODE_ASCII || mode == MODE_HIRA || mode == MODE_KATA)
 		skk->mode = mode;
-	else if (mode == ~MODE_COOK || mode == ~MODE_SELECT || mode == ~MODE_APPEND)
+	else if (mode == ~MODE_COOK || mode == ~MODE_SELECT
+		|| mode == ~MODE_APPEND)
 		skk->mode &= mode;
 	else if (mode == MODE_COOK) {
 		skk->mode |= MODE_COOK;
@@ -131,31 +166,98 @@ int not_slash(int c)
 		return 0; /* false */
 }
 
-bool get_candidate(struct candidate_t *candidate, struct entry_t *ep)
+bool get_candidate(struct skk_t *skk, struct entry_t *ep)
 {
-	char buf[BUFSIZE], key[BUFSIZE];
+	char buf[BUFSIZE];
+	FILE *fp;
 
-	if (fseek(candidate->fp, ep->offset, SEEK_SET) < 0
-		|| fgets(buf, BUFSIZE, candidate->fp) == NULL
-		|| sscanf(buf, "%s %s", key, candidate->entry) != 2)
+	if (ep == NULL
+		|| (fp = fopen(dict_file, "r")) == NULL
+		|| fseek(fp, ep->offset, SEEK_SET) < 0
+		|| fgets(buf, BUFSIZE, fp) == NULL
+		|| sscanf(buf, "%s %s", skk->stored_key, skk->entry) != 2)
 		return false;
 
-	reset_parm(&candidate->parm);
-	parse_entry(candidate->entry, &candidate->parm, '/', not_slash);
+	reset_parm(&skk->parm);
+	parse_entry(skk->entry, &skk->parm, '/', not_slash);
 
-	return (candidate->parm.argc > 0) ? true: false;
+	if (DEBUG)
+		fprintf(stderr, "\tcandidate num:%d\n", skk->parm.argc);
+
+	fclose(fp);
+
+	return (skk->parm.argc > 0) ? true: false;
+}
+
+void sort_candidate(struct skk_t *skk, char *key)
+{
+	int i, j;
+	struct parm_t new;
+	struct hash_t *hp;
+
+	hp = hash_lookup(skk->user_dict, key, "");
+	if (hp == NULL)
+		return;
+
+	reset_parm(&new);
+	//for (i = hp->count - 1; i >= 0; i--) {
+	for (i = 0; i < hp->count; i++) {
+		new.argv[new.argc++] = hp->values[i];
+		for (j = 0; j < skk->parm.argc; j++) {
+			if (strcmp(hp->values[i], skk->parm.argv[j]) == 0)
+				skk->parm.argv[j] = "";
+		}
+	}
+
+	for (i = 0; i < skk->parm.argc; i++) {
+		if (strcmp(skk->parm.argv[i], "") != 0)
+			new.argv[new.argc++] = skk->parm.argv[i];
+	}
+
+	skk->parm = new;
+	if (DEBUG) {
+		fprintf(stderr, "\tsort candidate: argc:%d\n", skk->parm.argc);
+		for (i = 0; i < skk->parm.argc; i++)
+			fprintf(stderr, "\t\targv[%d]:%s\n", i, skk->parm.argv[i]);
+	}
+}
+
+void register_candidate(struct skk_t *skk, char *key, char *val)
+{
+	int fd;
+	FILE *fp;
+	struct flock lock;
+
+	lock.l_type = F_WRLCK;
+	lock.l_whence = SEEK_SET;
+	lock.l_start = 0;
+	lock.l_len = 0;
+	lock.l_pid = getpid();
+
+	if ((fp = fopen(user_file, "a")) == NULL
+		|| (fd = fileno(fp)) < 0
+		|| fcntl(fd, F_SETLKW, &lock) < 0)
+		return;
+
+	if (hash_create(skk->user_dict, key, val))
+		fprintf(fp, "%s /%s/\n", key, val);
+
+	lock.l_type = F_UNLCK;
+	fcntl(fd, F_SETLK, &lock);
+
+	fclose(fp);
 }
 
 void reset_candidate(struct skk_t *skk, bool fixed)
 {
-	int select = skk->select, count = skk->candidate.parm.argc;
-	char **values = skk->candidate.parm.argv;
+	int select = skk->select, argc = skk->parm.argc;
+	char **argv = skk->parm.argv;
 
-	if (fixed && (0 <= select && select < count)) {
-		write_str(skk->fd, values[select], strlen(values[select]));
+	if (fixed && (0 <= select && select < argc)) {
+		write_str(skk->fd, argv[select], strlen(argv[select]));
 		write_list(skk->fd, &skk->append, list_size(&skk->append));
+		register_candidate(skk, skk->stored_key, argv[select]);
 	}
-
 	skk->select = SELECT_EMPTY;
 }
 
@@ -189,7 +291,7 @@ void redraw_buffer(struct skk_t *skk)
 	}
 	else if (skk->mode & MODE_SELECT) {
 		skk->kwrote = write_str(skk->fd, mark_select, strlen(mark_select));
-		str = skk->candidate.parm.argv[skk->select];
+		str = skk->parm.argv[skk->select];
 		skk->kwrote += write_str(skk->fd, str, strlen(str));
 		skk->kwrote += write_list(skk->fd, &skk->append, list_size(&skk->append));
 	}

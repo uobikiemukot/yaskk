@@ -151,15 +151,14 @@ void parse_ascii(struct skk_t *skk, char c)
 
 void parse_select(struct skk_t *skk, char c, int size)
 {
-	char str[size + 1];
 	struct entry_t *ep;
 	struct table_t *tp;
 
-	memset(str, '\0', size + 1);
-	list_front_n(&skk->key, str, size);
+	memset(skk->stored_key, '\0', BUFSIZE);
+	list_front_n(&skk->key, skk->stored_key, size);
 
 	if (DEBUG)
-		fprintf(stderr, "\tparse select str:%s select:%d\n", str, skk->select);
+		fprintf(stderr, "\tparse select key:%s select:%d\n", skk->stored_key, skk->select);
 	tp = (c == SPACE) ? &skk->okuri_nasi: &skk->okuri_ari;
 
 	if (skk->select >= SELECT_LOADED) {
@@ -175,33 +174,16 @@ void parse_select(struct skk_t *skk, char c, int size)
 		}
 	}
 	else {
-		ep = table_lookup(tp, str);
-		get_candidate(skk, ep);
-		sort_candidate(skk, str);
+		reset_parm(&skk->parm);
+		if ((ep = table_lookup(tp, skk->stored_key)) != NULL)
+			get_candidate(skk, ep);
+		sort_candidate(skk, skk->stored_key);
 
 		if (skk->parm.argc > 0)
 			skk->select = SELECT_LOADED;
 		else
 			change_mode(skk, MODE_COOK);
 	}
-
-	/*
-	else if ((ep = table_lookup(tp, str)) != NULL) {
-		if (DEBUG)
-			fprintf(stderr, "\tmatched!\n");
-		if (get_candidate(skk, ep)) {
-			sort_candidate(skk, str);
-			skk->select = SELECT_LOADED;
-		}
-		else
-			change_mode(skk, MODE_COOK);
-	}
-	else {
-		if (DEBUG)
-			fprintf(stderr, "\tunmatched!\n");
-		change_mode(skk, MODE_COOK);
-	}
-	*/
 }
 
 void parse_kana(struct skk_t *skk, int len)

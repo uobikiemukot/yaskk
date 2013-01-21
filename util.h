@@ -79,26 +79,6 @@ void eexecvp(const char *file, char *const arg[])
 		error("execl");
 }
 
-/*
-void esigaction(int signo, struct sigaction *act, struct sigaction *oact)
-{
-	if (sigaction(signo, act, oact) < 0)
-		error("sigaction");
-}
-
-void etcgetattr(int fd, struct termios *tm)
-{
-	if (tcgetattr(fd, tm) < 0)
-		error("tcgetattr");
-}
-
-void etcsetattr(int fd, int action, struct termios *tm)
-{
-	if (tcsetattr(fd, action, tm) < 0)
-		error("tcgetattr");
-}
-*/
-
 pid_t eforkpty(int *master, char *name, struct termios *termp, struct winsize *winp)
 {
 	/* name must be null */

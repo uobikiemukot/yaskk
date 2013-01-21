@@ -1,5 +1,5 @@
 /* misc */
-char *const exec_cmd = "sh";
+char *const exec_cmd = "bash";
 
 /* load files */
 const char *map_file = "/path/to/map";

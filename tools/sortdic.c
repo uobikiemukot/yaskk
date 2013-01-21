@@ -60,6 +60,7 @@ void print_entry(FILE *fp, struct entry_t *ep)
 
 int main(int argc, char *argv[])
 {
+	const char *file;
 	struct table_t okuri_ari, okuri_nasi;
 	int i;
 	FILE *fp;
@@ -68,14 +69,16 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "usage: ./sort DICT\n");
 		exit(EXIT_FAILURE);
 	}
-	dict_file = argv[1];
+	file = argv[1];
 
 	okuri_ari.count = okuri_nasi.count = 0;
 	okuri_ari.entries = okuri_nasi.entries = NULL;
-	fp = load_dict(&okuri_ari, &okuri_nasi);
+	load_dict(file, &okuri_ari, &okuri_nasi);
 
 	merge_sort(okuri_ari.entries, okuri_ari.count);
 	merge_sort(okuri_nasi.entries, okuri_nasi.count);
+
+	fp = efopen(file, "r");
 
 	printf(";; okuri-ari entries.\n");
 	for (i = 0; i < okuri_ari.count; i++)

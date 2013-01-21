@@ -52,17 +52,18 @@ void merge_sort(struct triplet_t *triplets, int size)
 int main(int argc, char *argv[])
 {
 	int i;
+	const char *file;
 	struct map_t map;
 
 	if (argc < 2) {
 		fprintf(stderr, "usage: ./sortmap MAP\n");
 		exit(EXIT_FAILURE);
 	}
-	map_file = argv[1];
+	file = argv[1];
 
 	map.triplets = NULL;
 	map.count = 0;
-	load_map(&map);
+	load_map(file, &map);
 
 	merge_sort(map.triplets, map.count);
 

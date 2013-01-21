@@ -1,7 +1,7 @@
 #include "../common.h"
 #include "../misc.h"
-#include "../parse.h"
 #include "../load.h"
+#include "../parse.h"
 
 void init(struct skk_t *skk)
 {
@@ -16,8 +16,8 @@ void init(struct skk_t *skk)
 	skk->rom2kana.count = 0;
 	skk->rom2kana.triplets = NULL;
 
-	load_map(&skk->rom2kana);
-	skk->candidate.fp = load_dict(&skk->okuri_ari, &skk->okuri_nasi);
+	load_map(map_file, &skk->rom2kana);
+	load_dict(dict_file, &skk->okuri_ari, &skk->okuri_nasi);
 }
 
 int main(int argc, char *argv[])

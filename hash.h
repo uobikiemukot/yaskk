@@ -1,20 +1,6 @@
-enum hash_parm {
-	NHASH = 512,
-	MULTIPLIER = 37, // or 31
-	KEYSIZE = 256,
-	VALSIZE = 1024,
-	MAX_ARGS = 256,
-};
-
-struct hash_t {
-	int count;
-	char *key, *values[MAX_PARAMS];
-	struct hash_t *next;
-};
-
 void safe_strncpy(char *dst, const char *src, size_t n)
 {
-	strncpy(dst, src, n);
+	strncpy((char *) dst, (char *) src, n);
 	if (n > 0)
 		dst[n - 1]= '\0';
 }
@@ -47,9 +33,9 @@ struct hash_t *hash_lookup(struct hash_t *symtable[], char *key, char *val)
 
 	hkey = hash_key(key);
 	for (hp = symtable[hkey]; hp != NULL; hp = hp->next) {
-		if (strcmp(key, hp->key) == 0) {
+		if (strcmp((char *) key, (char *) hp->key) == 0) {
 			for (i = 0; i < hp->count; i++) {
-				if (strcmp(val, hp->values[i]) == 0) /* matched */
+				if (strcmp((char *) val, (char *) hp->values[i]) == 0) /* matched */
 					return hp;
 			}
 			break;
@@ -66,9 +52,9 @@ bool hash_create(struct hash_t *symtable[], char *key, char *val)
 
 	hkey = hash_key(key);
 	for (hp = symtable[hkey]; hp != NULL; hp = hp->next) {
-		if (strcmp(key, hp->key) == 0) {
+		if (strcmp((char *) key, (char *) hp->key) == 0) {
 			for (i = 0; i < hp->count; i++) {
-				if (strcmp(val, hp->values[i]) == 0) /* matched */
+				if (strcmp((char *) val, (char *) hp->values[i]) == 0) /* matched */
 					return false;
 			}
 			break;

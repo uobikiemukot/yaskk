@@ -1,18 +1,9 @@
-enum {
-	MAX_PARAMS = 256,
-};
-
-struct parm_t {
-	int argc;
-	char *argv[MAX_PARAMS];
-};
-
 void reset_parm(struct parm_t *pt)
 {
 	int i;
 
 	pt->argc = 0;
-	for (i = 0; i < MAX_PARAMS; i++)
+	for (i = 0; i < MAX_ARGS; i++)
 		pt->argv[i] = NULL;
 }
 
@@ -32,8 +23,8 @@ void parse_entry(char *buf, struct parm_t *pt, int delim, int (is_valid)(int c))
 	cp = buf;
 
 start:
-	if (pt->argc <= MAX_PARAMS && is_valid(*cp)) {
-		pt->argv[pt->argc] = (char *) cp;
+	if (pt->argc <= MAX_ARGS && is_valid(*cp)) {
+		pt->argv[pt->argc] = cp;
 		pt->argc++;
 	}
 

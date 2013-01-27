@@ -46,6 +46,7 @@ int main(int argc, char *argv[])
 
 	/* init */
 	init_skk(&skk);
+	skk.fd = STDOUT_FILENO;
 	set_rawmode(STDIN_FILENO, &save_tm);
 
 	/* main loop */

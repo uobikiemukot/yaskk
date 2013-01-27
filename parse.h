@@ -207,9 +207,8 @@ void parse_select(struct skk_t *skk, uint8_t c, int size)
 			skk->select = SELECT_LOADED;
 		else {
 			/* dictionary mode not implemented */
-			reset_buffer((struct list_t **[]){&skk->key, &skk->append, &skk->preedit, NULL});
 			reset_candidate(skk, list_size(&skk->key), false);
-			change_mode(skk, ~MODE_SELECT);
+			change_mode(skk, MODE_COOK);
 		}
 	}
 }

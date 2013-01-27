@@ -1,6 +1,10 @@
 #include "common.h"
-#include "misc.h"
+#include "util.h"
+#include "list.h"
+#include "args.h"
+#include "hash.h"
 #include "load.h"
+#include "misc.h"
 #include "parse.h"
 
 bool loop_flag = true;
@@ -31,7 +35,7 @@ void set_rawmode(int fd, struct termios *save_tm)
 	tcsetattr(fd, TCSAFLUSH, &tm);
 }
 
-void init(struct skk_t *skk)
+void init_signal()
 {
 	struct sigaction sigact;
 
@@ -40,22 +44,6 @@ void init(struct skk_t *skk)
 	sigact.sa_flags = SA_RESTART;
 	sigaction(SIGCHLD, &sigact, NULL);
 	sigaction(SIGWINCH, &sigact, NULL);
-
-	skk->key = skk->preedit = skk->append = NULL;
-	skk->pwrote = skk->kwrote = 0;
-	skk->mode = MODE_ASCII;
-	skk->select = SELECT_EMPTY;
-
-	skk->okuri_ari.count = skk->okuri_nasi.count = 0;
-	skk->okuri_ari.entries = skk->okuri_nasi.entries = NULL;
-	skk->rom2kana.count = 0;
-	skk->rom2kana.triplets = NULL;
-
-	hash_init(skk->user_dict);
-
-	load_map(map_file, &skk->rom2kana);
-	load_dict(dict_file, &skk->okuri_ari, &skk->okuri_nasi);
-	load_user(user_file, skk->user_dict);
 }
 
 void die(struct termios *save_tm)
@@ -82,7 +70,7 @@ void check_fds(fd_set *fds, struct timeval *tv, int stdin, int master)
 
 int main(int argc, char *argv[])
 {
-	char buf[BUFSIZE];
+	uint8_t buf[BUFSIZE];
 	char *cmd;
 	ssize_t size;
 	pid_t pid;
@@ -90,16 +78,18 @@ int main(int argc, char *argv[])
 	struct skk_t skk;
 	struct timeval tv;
 	struct winsize wsize;
+	struct termios save_tm;
 
 	/* init */
-	init(&skk);
-	set_rawmode(STDIN_FILENO, &skk.save_tm);
+	init_signal();
+	init_skk(&skk);
+	set_rawmode(STDIN_FILENO, &save_tm);
 
 	/* fork */
 	cmd = (argc < 2) ? exec_cmd: argv[1];
 	ioctl(STDIN_FILENO, TIOCGWINSZ, &wsize);
 
-	pid = eforkpty(&skk.fd, NULL, &skk.save_tm, &wsize);
+	pid = eforkpty(&skk.fd, NULL, &save_tm, &wsize);
 	if (pid == 0) /* child */
 		eexecvp(cmd, (char *const []){cmd, NULL});
 
@@ -124,7 +114,7 @@ int main(int argc, char *argv[])
 			ioctl(skk.fd, TIOCSWINSZ, &wsize);
 		}
 	}
-	die(&skk.save_tm);
+	die(&save_tm);
 
 	return EXIT_SUCCESS;
 }

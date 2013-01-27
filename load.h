@@ -89,7 +89,7 @@ void load_user(const char *file, struct hash_t *user_dict[])
 	FILE *fp;
 	struct parm_t parm;
 
-	fp = efopen(file, "r");
+	fp = efopen(file, "a+");
 
 	while (fgets(buf, BUFSIZE, fp) != NULL) {
 		num = sscanf(buf, "%s %s", key, entry);

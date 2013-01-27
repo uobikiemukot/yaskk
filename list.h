@@ -1,8 +1,3 @@
-struct list_t {
-	char c;
-	struct list_t *next;
-};
-
 void list_init(struct list_t **list)
 {
 	*list = NULL;
@@ -164,4 +159,22 @@ void list_apply(struct list_t **list, int (*func)(int c))
 
 	for (lp = *list; lp != NULL; lp = lp->next)
 		lp->c = func(lp->c);
+}
+
+void list_copy(struct list_t **dst, struct list_t **src)
+{
+	struct list_t *lp = *src;
+
+	while (lp != NULL) {
+		list_push_back(dst, list_front(&lp));
+		lp = lp->next;
+	}
+}
+
+char *list_getstr(struct list_t **list, char *str, int size)
+{
+	memset(str, '\0', size + 1);
+	list_front_n(list, str, size);
+
+	return str;
 }

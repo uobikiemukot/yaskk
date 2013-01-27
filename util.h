@@ -117,3 +117,23 @@ pid_t eforkpty(int *master, char *name, struct termios *termp, struct winsize *w
 
 	return pid;
 }
+
+/*
+size_t ustrlen(const uint8_t *str)
+{
+	return strlen((const char *) str);
+}
+
+char *ufgets(uint8_t *buf, int size, FILE *fp)
+{
+	return fgets((char *) buf, size, fp);
+}
+*/
+
+int not_slash(int c)
+{
+	if (c != 0x2F && !iscntrl(c))
+		return 1; /* true */
+	else
+		return 0; /* false */
+}

@@ -19,14 +19,11 @@
 
 enum ctrl_chars {
 	NUL = 0x00,
-	ETX = 0x05,
-	BS = 0x08,  /* backspace */
-	LF = 0x0A,  /* LF */
-	FF = 0x0C,
+	CTRL_H = 0x08,
+	CTRL_J = 0x0A,
+	CTRL_N = 0x0E,
+	CTRL_P = 0x10,
 	ESC = 0x1B,
-	CR = 0x0D,
-	SO = 0x0E,  /* ctrl + n */
-	DLE = 0x10, /* ctrl + p */
 	SPACE = 0x20,
 	DEL = 0x7F,
 };
@@ -37,11 +34,8 @@ enum misc {
 	BUFSIZE = 1024,
 	SELECT_TIMEOUT = 20000,
 	INPUT_LIMIT = 6,
-	NHASH = 512,
+	MAX_ARGS = 512,
 	MULTIPLIER = 37, // or 31
-	KEYSIZE = 256,
-	VALSIZE = 1024,
-	MAX_ARGS = 256,
 };
 
 enum mode {
@@ -112,12 +106,11 @@ struct skk_t {
 	int mode;                             /* input mode */
 	int pwrote, kwrote;                   /* count of wroted characters */
 	int select;                           /* candidate select status */
-	//char stored_key[BUFSIZE];
 	char entry[BUFSIZE];                  /* line buffer for dictionary */
 	struct map_t rom2kana;                /* romaji to kana map */
 	struct table_t okuri_ari, okuri_nasi; /* convert table */
-	struct hash_t *user_dict[NHASH];      /* hash table of user dict */
-	struct list_t *key;                   /* keyword string for table lookup */
+	struct hash_t *user_dict[MAX_ARGS];   /* hash table of user dict */
+	struct list_t *key;                   /* keyword string for display */
 	struct list_t *append;                /* append string for append mode */
 	struct list_t *preedit;               /* preedit string for map lookup */
 	struct parm_t parm;                   /* data for candidate */

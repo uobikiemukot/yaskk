@@ -72,21 +72,8 @@ int write_str(int fd, const char *str, int size)
 /* mode */
 void change_mode(struct skk_t *skk, int mode)
 {
-	if (mode == MODE_ASCII) {
-		skk->mode |= MODE_ASCII;
-		skk->mode &= ~MODE_HIRA;
-		skk->mode &= ~MODE_KATA;
-	}
-	else if (mode == MODE_HIRA) {
-		skk->mode &= ~MODE_ASCII;
-		skk->mode |= MODE_HIRA;
-		skk->mode &= ~MODE_KATA;
-	}
-	else if (mode == MODE_KATA) {
-		skk->mode &= ~MODE_ASCII;
-		skk->mode &= ~MODE_HIRA;
-		skk->mode |= MODE_KATA;
-	}
+	if (mode == MODE_ASCII || mode == MODE_HIRA || mode == MODE_KATA)
+		skk->mode = mode;
 	else if (mode == MODE_COOK) {
 		skk->mode |= MODE_COOK;
 		skk->mode &= ~MODE_SELECT;
@@ -106,7 +93,7 @@ void change_mode(struct skk_t *skk, int mode)
 		skk->mode &= mode;
 	else {
 		if (DEBUG)
-			fprintf(stderr, "\tunknown mode:0x%.4X\n", skk->mode);
+			fprintf(stderr, "\tunknown mode change:0x%.4X\n", skk->mode);
 	}
 
 	if (DEBUG)
@@ -319,8 +306,7 @@ bool write_buffer(struct skk_t *skk, struct triplet_t *tp, bool is_double_conson
 	int len;
 	char *val;
 
-	val = (skk->mode & MODE_HIRA || skk->mode & MODE_COOK || skk->mode & MODE_APPEND) ?
-		tp->hira: tp->kata;
+	val = (skk->mode & MODE_HIRA || skk->mode & MODE_COOK || skk->mode & MODE_APPEND) ? tp->hira: tp->kata;
 	len = strlen(val);	
 
 	if (skk->mode & MODE_COOK)

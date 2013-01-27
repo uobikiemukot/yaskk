@@ -1,6 +1,10 @@
 #include "../common.h"
-#include "../misc.h"
+#include "../util.h"
+#include "../list.h"
+#include "../hash.h"
 #include "../load.h"
+#include "../misc.h"
+#include "../parse.h"
 
 void swap(struct triplet_t *t1, struct triplet_t *t2)
 {

@@ -9,29 +9,28 @@ void hash_init(struct hash_t *symtable[])
 {
 	int i;
 
-	for (i = 0; i < NHASH; i++)
+	for (i = 0; i < MAX_ARGS; i++)
 		symtable[i] = NULL;
 }
 
-int hash_key(char *cp)
+unsigned int hash_key(uint8_t *cp)
 {
-	/*
-	int ret = 0;
+	unsigned int ret = 0;
 
-	while (*cp != 0)
+	while (*cp != '\0')
 		ret = MULTIPLIER * ret + *cp++;
 
-	return ret % NHASH;
-	*/
-	return 0;
+	return (ret % MAX_ARGS);
+	//return 0;
 }
 
 struct hash_t *hash_lookup(struct hash_t *symtable[], char *key, char *val)
 {
-	int i, hkey;
+	int i;
+	unsigned int hkey;
 	struct hash_t *hp;
 
-	hkey = hash_key(key);
+	hkey = hash_key((uint8_t *) key);
 	for (hp = symtable[hkey]; hp != NULL; hp = hp->next) {
 		if (strcmp((char *) key, (char *) hp->key) == 0) {
 			for (i = 0; i < hp->count; i++) {
@@ -47,10 +46,11 @@ struct hash_t *hash_lookup(struct hash_t *symtable[], char *key, char *val)
 
 bool hash_create(struct hash_t *symtable[], char *key, char *val)
 {
-	int i, hkey;
+	int i;
+	unsigned int hkey;
 	struct hash_t *hp;
 
-	hkey = hash_key(key);
+	hkey = hash_key((uint8_t *) key);
 	for (hp = symtable[hkey]; hp != NULL; hp = hp->next) {
 		if (strcmp((char *) key, (char *) hp->key) == 0) {
 			for (i = 0; i < hp->count; i++) {

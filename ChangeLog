@@ -8,3 +8,7 @@
 	-	through long input (size > INPUT_LIMIT)
 	-	fix mode change bug
 	-	fx backspace bug (MODE_APPEND)
+
+## 2013-01-28
+-	version 0.0.2
+-	support user dictionary

@@ -1,7 +1,7 @@
 void load_map(const char *file, struct map_t *mp)
 {
 	int num;
-	char buf[BUFSIZE], key[KEYSIZE], hira[VALSIZE], kata[VALSIZE];
+	char buf[BUFSIZE], key[BUFSIZE], hira[BUFSIZE], kata[BUFSIZE];
 	FILE *fp;
 
 	fp = efopen(file, "r");

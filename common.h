@@ -112,6 +112,7 @@ struct skk_t {
 	int mode;                             /* input mode */
 	int pwrote, kwrote;                   /* count of wroted characters */
 	int select;                           /* candidate select status */
+	//char stored_key[BUFSIZE];
 	char entry[BUFSIZE];                  /* line buffer for dictionary */
 	struct map_t rom2kana;                /* romaji to kana map */
 	struct table_t okuri_ari, okuri_nasi; /* convert table */

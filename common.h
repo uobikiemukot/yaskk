@@ -51,7 +51,6 @@ enum mode {
 	MODE_COOK = 0x08,
 	MODE_APPEND = 0x10,
 	MODE_SELECT = 0x20,
-	MODE_DICT = 0x40,
 };
 
 enum select {
@@ -64,25 +63,13 @@ const char *mode_str[] = {
 	[MODE_HIRA] = "hira",
 	[MODE_KATA] = "kata",
 
-	[MODE_HIRA | MODE_DICT] = "hira|dict",
-	[MODE_HIRA | MODE_DICT] = "hira|dict",
-	[MODE_HIRA | MODE_DICT] = "hira|dict",
-
 	[MODE_HIRA | MODE_COOK] = "hira|cook",
 	[MODE_HIRA | MODE_SELECT] = "hira|select",
 	[MODE_HIRA | MODE_APPEND] = "hira|append",
 
-	[MODE_HIRA | MODE_COOK | MODE_DICT] = "hira|cook|dict",
-	[MODE_HIRA | MODE_SELECT | MODE_DICT] = "hira|select|dict",
-	[MODE_HIRA | MODE_APPEND | MODE_DICT] = "hira|append|dict",
-
 	[MODE_KATA | MODE_COOK] = "kata|cook",
 	[MODE_KATA | MODE_SELECT] = "kata|select",
 	[MODE_KATA | MODE_APPEND] = "kata|append",
-
-	[MODE_KATA | MODE_COOK | MODE_DICT] = "kata|cook|dict",
-	[MODE_KATA | MODE_SELECT | MODE_DICT] = "kata|select|dict",
-	[MODE_KATA | MODE_APPEND | MODE_DICT] = "kata|append|dict",
 };
 
 struct list_t {
@@ -126,13 +113,11 @@ struct skk_t {
 	int pwrote, kwrote;                   /* count of wroted characters */
 	int select;                           /* candidate select status */
 	char entry[BUFSIZE];                  /* line buffer for dictionary */
-	char stored_key[BUFSIZE];             /* stored key for dict mode */
 	struct map_t rom2kana;                /* romaji to kana map */
 	struct table_t okuri_ari, okuri_nasi; /* convert table */
 	struct hash_t *user_dict[NHASH];      /* hash table of user dict */
 	struct list_t *key;                   /* keyword string for table lookup */
 	struct list_t *append;                /* append string for append mode */
 	struct list_t *preedit;               /* preedit string for map lookup */
-	struct list_t *dict;                  /* value for dict mode */
 	struct parm_t parm;                   /* data for candidate */
 };

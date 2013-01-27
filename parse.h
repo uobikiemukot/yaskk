@@ -8,128 +8,6 @@ bool check_ascii(struct skk_t *skk, uint8_t *c)
 	return false;
 }
 
-bool check_dict_cook(struct skk_t *skk, uint8_t *c)
-{
-	if (*c == CR) {
-		if (list_size(&skk->dict) > 0) {
-			change_mode(skk, ~MODE_DICT);
-			fix_candidate(skk, &skk->dict, list_size(&skk->dict));
-			reset_buffer((struct list_t **[]){&skk->key, &skk->append, &skk->preedit, &skk->dict, NULL});
-			return true;
-		}
-		else {
-			change_mode(skk, ~MODE_DICT);
-			reset_buffer((struct list_t **[]){&skk->key, &skk->append, &skk->preedit, &skk->dict, NULL});
-			list_push_front_n(&skk->key, skk->stored_key, strlen(skk->stored_key));
-			return true;
-		}
-	}
-	else if (*c == ESC) {
-		change_mode(skk, ~MODE_DICT);
-		reset_buffer((struct list_t **[]){&skk->key, &skk->append, &skk->preedit, &skk->dict, NULL});
-		list_push_front_n(&skk->key, skk->stored_key, strlen(skk->stored_key));
-		return true;
-	}
-	else if (*c == SPACE) {
-		change_mode(skk, MODE_SELECT);
-		reset_buffer((struct list_t **[]){&skk->preedit, NULL});
-	}
-	else if (isupper(*c)) {
-		*c = tolower(*c);
-		if (list_size(&skk->key) > 0) {
-			change_mode(skk, MODE_APPEND);
-			if (list_size(&skk->preedit) > 0
-				&& (*c == 'a' || *c == 'i' || *c == 'u' || *c == 'e' || *c == 'o'))
-				list_push_back(&skk->key, list_front(&skk->preedit));
-			else
-				list_push_back(&skk->key, *c);
-		}
-	}
-	return false;
-}
-
-bool check_dict_append(struct skk_t *skk, uint8_t *c)
-{
-	if (*c == LF) {
-		change_mode(skk, MODE_COOK);
-		list_copy(&skk->dict, &skk->key);
-		reset_buffer((struct list_t **[]){&skk->key, &skk->append, &skk->preedit, NULL});
-		return true;
-	}
-	else if (*c == ESC) {
-		change_mode(skk, MODE_COOK);
-		reset_buffer((struct list_t **[]){&skk->key, &skk->append, &skk->preedit, NULL});
-		return true;
-	}
-	else if (isupper(*c))
-		*c = tolower(*c);
-
-	return false;
-}
-
-bool check_dict_select(struct skk_t *skk, uint8_t *c)
-{
-	if (*c == DLE || *c == SO || *c == SPACE || *c == 'x')
-		; /* through */
-	if (*c == CR) {
-	}
-	else if (*c == LF) {
-		reset_candidate(skk, list_size(&skk->key), true);
-		change_mode(skk, MODE_COOK);
-		reset_buffer((struct list_t **[]){&skk->key, &skk->append, &skk->preedit, NULL});
-		return true;
-	}
-	else if (*c == ESC) {
-		reset_candidate(skk, list_size(&skk->key), false);
-		change_mode(skk, MODE_COOK);
-		if (islower(list_back(&skk->key)))
-			list_erase_back(&skk->key);
-		reset_buffer((struct list_t **[]){&skk->append, &skk->preedit, NULL});
-		return true;
-	}
-	else {
-		reset_candidate(skk, list_size(&skk->key), true);
-		change_mode(skk, MODE_COOK);
-		reset_buffer((struct list_t **[]){&skk->key, &skk->append, &skk->preedit, NULL});
-
-		if (isupper(*c)) {
-			change_mode(skk, MODE_COOK);
-			*c = tolower(*c);
-		}
-	}
-	return false;
-}
-
-bool check_dict_kana(struct skk_t *skk, uint8_t *c)
-{
-	if ((list_back(&skk->preedit) == 'z') && (*c == SPACE || *c == 'L')) 
-		; /* for "z " and "zL" */
-	else if (*c == ESC) { /* for vi */
-		change_mode(skk, MODE_ASCII);
-		reset_buffer((struct list_t **[]){&skk->key, &skk->append, &skk->preedit, NULL});
-	}
-	else if (*c == SPACE) {
-		reset_buffer((struct list_t **[]){&skk->preedit, NULL});
-		write_str(skk->fd, (char *) c, 1);
-		return true;
-	}
-	else if (*c == 'l' && list_back(&skk->preedit) != 'z') {
-		change_mode(skk, MODE_ASCII);
-		reset_buffer((struct list_t **[]){&skk->key, &skk->append, &skk->preedit, NULL});
-		return true;
-	}
-	else if (*c == 'q') {
-		change_mode(skk, (skk->mode & MODE_HIRA) ? MODE_KATA: MODE_HIRA);
-		reset_buffer((struct list_t **[]){&skk->key, &skk->append, &skk->preedit, NULL});
-		return true;
-	}
-	else if (isupper(*c)) {
-		change_mode(skk, MODE_COOK);
-		*c = tolower(*c);
-	}
-	return false;
-}
-
 bool check_cook(struct skk_t *skk, uint8_t *c)
 {
 	if (*c == LF) {
@@ -261,14 +139,6 @@ bool mode_check(struct skk_t *skk, uint8_t *c)
 {
 	if (skk->mode & MODE_ASCII)
 		return check_ascii(skk, c);
-	if ((skk->mode & MODE_DICT) && (skk->mode & MODE_COOK))
-		return check_dict_cook(skk, c);
-	else if ((skk->mode & MODE_DICT) && (skk->mode & MODE_APPEND))
-		return check_dict_append(skk, c);
-	else if ((skk->mode & MODE_DICT) && (skk->mode & MODE_SELECT))
-		return check_dict_select(skk, c);
-	else if ((skk->mode & MODE_DICT) && (skk->mode & MODE_HIRA || skk->mode & MODE_KATA))
-		return check_dict_kana(skk, c);
 	else if (skk->mode & MODE_COOK)
 		return check_cook(skk, c);
 	else if (skk->mode & MODE_APPEND)
@@ -336,11 +206,10 @@ void parse_select(struct skk_t *skk, uint8_t c, int size)
 		if (skk->parm.argc > 0)
 			skk->select = SELECT_LOADED;
 		else {
-			list_getstr(&skk->key, skk->stored_key, size);
+			/* dictionary mode not implemented */
 			reset_buffer((struct list_t **[]){&skk->key, &skk->append, &skk->preedit, NULL});
 			reset_candidate(skk, list_size(&skk->key), false);
 			change_mode(skk, ~MODE_SELECT);
-			change_mode(skk, MODE_DICT);
 		}
 	}
 }

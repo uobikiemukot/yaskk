@@ -14,6 +14,7 @@ int main(int argc, char *argv[])
 
 	/* init */
 	init_skk(&skk);
+	skk.fd = STDOUT_FILENO;
 
 	/* main loop */
 	while ((size = read(STDIN_FILENO, buf, BUFSIZE)) > 0)

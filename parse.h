@@ -1,6 +1,6 @@
 bool check_ascii(struct skk_t *skk, uint8_t *c)
 {
-	if (*c == LF) {
+	if (*c == CTRL_J) {
 		change_mode(skk, MODE_HIRA);
 		reset_buffer((struct list_t **[]){&skk->key, &skk->append, &skk->preedit, NULL});
 		return true;
@@ -10,14 +10,10 @@ bool check_ascii(struct skk_t *skk, uint8_t *c)
 
 bool check_cook(struct skk_t *skk, uint8_t *c)
 {
-	if (*c == LF) {
+	if (*c == CTRL_J) {
 		change_mode(skk, ~MODE_COOK);
 		write_list(skk->fd, &skk->key, list_size(&skk->key));
 		reset_buffer((struct list_t **[]){&skk->key, &skk->append, &skk->preedit, NULL});
-		return true;
-	}
-	else if (*c == 'L') {
-		load_user(user_file, skk->user_dict);
 		return true;
 	}
 	else if (*c == ESC) {
@@ -28,6 +24,10 @@ bool check_cook(struct skk_t *skk, uint8_t *c)
 	else if (*c == SPACE) {
 		change_mode(skk, MODE_SELECT);
 		reset_buffer((struct list_t **[]){&skk->append, &skk->preedit, NULL});
+	}
+	else if (*c == 'L') {
+		load_user(user_file, skk->user_dict);
+		return true;
 	}
 	else if (isupper(*c)) {
 		*c = tolower(*c);
@@ -45,7 +45,7 @@ bool check_cook(struct skk_t *skk, uint8_t *c)
 
 bool check_append(struct skk_t *skk, uint8_t *c)
 {
-	if (*c == LF) {
+	if (*c == CTRL_J) {
 		change_mode(skk, ~MODE_APPEND);
 		list_erase_back(&skk->key);
 		write_list(skk->fd, &skk->key, list_size(&skk->key));
@@ -64,9 +64,9 @@ bool check_append(struct skk_t *skk, uint8_t *c)
 
 bool check_select(struct skk_t *skk, uint8_t *c)
 {
-	if (*c == DLE || *c == SO || *c == SPACE || *c == 'x')
+	if (*c == CTRL_P || *c == CTRL_N || *c == SPACE || *c == 'x')
 		; /* through */
-	else if (*c == LF) {
+	else if (*c == CTRL_J) {
 		reset_candidate(skk, list_size(&skk->key), true);
 		change_mode(skk, ~MODE_SELECT);
 		reset_buffer((struct list_t **[]){&skk->key, &skk->append, &skk->preedit, NULL});
@@ -95,7 +95,7 @@ bool check_select(struct skk_t *skk, uint8_t *c)
 	else {
 		reset_candidate(skk, list_size(&skk->key), true);
 		change_mode(skk, ~MODE_SELECT);
-		reset_buffer((struct list_t **[]){&skk->key, &skk->append, &skk->preedit, NULL}); // key broken here
+		reset_buffer((struct list_t **[]){&skk->key, &skk->append, &skk->preedit, NULL});
 
 		if (isupper(*c)) {
 			change_mode(skk, MODE_COOK);
@@ -107,25 +107,25 @@ bool check_select(struct skk_t *skk, uint8_t *c)
 
 bool check_kana(struct skk_t *skk, uint8_t *c)
 {
-	if ((list_back(&skk->preedit) == 'z') && (*c == SPACE || *c == 'L')) 
-		; /* for "z " and "zL" */
+	if ((list_back(&skk->preedit) == 'z') && (*c == SPACE || *c == 'L' || *c == 'l')) 
+		; /* for "z ", "zL" and "zl" */
 	else if (*c == ESC) { /* for vi */
 		change_mode(skk, MODE_ASCII);
-		reset_buffer((struct list_t **[]){&skk->key, &skk->append, &skk->preedit, NULL});
+		reset_buffer((struct list_t **[]){&skk->preedit, NULL});
 	}
 	else if (*c == SPACE) {
 		reset_buffer((struct list_t **[]){&skk->preedit, NULL});
 		write_str(skk->fd, (char *) c, 1);
 		return true;
 	}
-	else if (*c == 'l' && list_back(&skk->preedit) != 'z') {
+	else if (*c == 'l') {
 		change_mode(skk, MODE_ASCII);
-		reset_buffer((struct list_t **[]){&skk->key, &skk->append, &skk->preedit, NULL});
+		reset_buffer((struct list_t **[]){&skk->preedit, NULL});
 		return true;
 	}
 	else if (*c == 'q') {
 		change_mode(skk, (skk->mode & MODE_HIRA) ? MODE_KATA: MODE_HIRA);
-		reset_buffer((struct list_t **[]){&skk->key, &skk->append, &skk->preedit, NULL});
+		reset_buffer((struct list_t **[]){&skk->preedit, NULL});
 		return true;
 	}
 	else if (isupper(*c)) {
@@ -160,14 +160,14 @@ void parse_control(struct skk_t *skk, uint8_t c)
 	if (DEBUG)
 		fprintf(stderr, "\tparse control c:0x%.2X\n", c);
 
-	if (c == BS || c == DEL) /* for Mac OS X */
+	if (c == CTRL_H || c == DEL) /* for Mac OS X */
 		delete_buffer(skk, c);
-	else if (c == LF)
+	else if (c == CTRL_J)
 		; /* ignore */
 	else if (skk->select >= SELECT_LOADED) {
-		if (c == SO)
+		if (c == CTRL_N)
 			increase_candidate(skk);
-		else if (c == DLE)
+		else if (c == CTRL_P)
 			decrease_candidate(skk);
 	}
 	else
@@ -232,7 +232,7 @@ void parse_kana(struct skk_t *skk, int len)
 	if (DEBUG)
 		fprintf(stderr, "\tparse kana compare length:%d list size:%d str:%s\n", len, size, str);
 
-	if ((tp = map_lookup(&skk->rom2kana, str, KEYSIZE - 1)) != NULL) {
+	if ((tp = map_lookup(&skk->rom2kana, str, BUFSIZE - 1)) != NULL) {
 		if (DEBUG)
 			fprintf(stderr, "\tmatched!\n");
 		if (size >= 2 && (str[0] == str[1] && str[0] != 'n')) {

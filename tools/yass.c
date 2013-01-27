@@ -1,6 +1,9 @@
 #include "../common.h"
-#include "../misc.h"
+#include "../util.h"
+#include "../list.h"
+#include "../hash.h"
 #include "../load.h"
+#include "../misc.h"
 #include "../parse.h"
 
 void set_rawmode(int fd, struct termios *save_tm)
@@ -16,23 +19,6 @@ void set_rawmode(int fd, struct termios *save_tm)
 	tm.c_cc[VMIN] = 1;  /* min data size (byte) */
 	tm.c_cc[VTIME] = 0; /* time out */
 	tcsetattr(fd, TCSAFLUSH, &tm);
-}
-
-void init(struct skk_t *skk)
-{
-	skk->fd = STDOUT_FILENO;
-	skk->key = skk->preedit = skk->append = NULL;
-	skk->pwrote = skk->kwrote = 0;
-	skk->mode = MODE_ASCII;
-	skk->select = SELECT_EMPTY;
-
-	skk->okuri_ari.count = skk->okuri_nasi.count = 0;
-	skk->okuri_ari.entries = skk->okuri_nasi.entries = NULL;
-	skk->rom2kana.count = 0;
-	skk->rom2kana.triplets = NULL;
-
-	load_map(map_file, &skk->rom2kana);
-	load_dict(dict_file, &skk->okuri_ari, &skk->okuri_nasi);
 }
 
 void die(struct termios *save_tm)
@@ -51,7 +37,7 @@ void check_fds(fd_set *fds, struct timeval *tv, int stdin)
 
 int main(int argc, char *argv[])
 {
-	char buf[BUFSIZE];
+	uint8_t buf[BUFSIZE];
 	ssize_t size;
 	fd_set fds;
 	struct skk_t skk;
@@ -59,7 +45,7 @@ int main(int argc, char *argv[])
 	struct termios save_tm;
 
 	/* init */
-	init(&skk);
+	init_skk(&skk);
 	set_rawmode(STDIN_FILENO, &save_tm);
 
 	/* main loop */

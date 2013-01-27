@@ -32,7 +32,7 @@ enum ctrl_chars {
 };
 
 enum misc {
-	DEBUG = true,
+	DEBUG = false,
 	RESET = 0x00,
 	BUFSIZE = 1024,
 	SELECT_TIMEOUT = 20000,

@@ -1,7 +1,7 @@
 /* init */
 void init_skk(struct skk_t *skk)
 {
-	skk->key = skk->preedit = skk->append = skk->dict = NULL;
+	skk->key = skk->preedit = skk->append = NULL;
 	skk->pwrote = skk->kwrote = 0;
 	skk->mode = MODE_ASCII;
 	skk->select = SELECT_EMPTY;
@@ -102,10 +102,7 @@ void change_mode(struct skk_t *skk, int mode)
 		skk->mode &= ~MODE_SELECT;
 		skk->mode |= MODE_APPEND;
 	}
-	else if (mode == MODE_DICT)
-		skk->mode |= MODE_DICT;
-	else if (mode == ~MODE_COOK || mode == ~MODE_SELECT
-		|| mode == ~MODE_APPEND || mode == ~MODE_DICT)
+	else if (mode == ~MODE_COOK || mode == ~MODE_SELECT || mode == ~MODE_APPEND)
 		skk->mode &= mode;
 	else {
 		if (DEBUG)
@@ -172,7 +169,7 @@ void increase_candidate(struct skk_t *skk)
 {
 	skk->select++;
 	if (skk->select >= skk->parm.argc)
-		skk->select = SELECT_LOADED; /* dictionary mode: not implemented */
+		skk->select = SELECT_LOADED; /* dictionary mode not implemented */
 }
 
 void decrease_candidate(struct skk_t *skk)
@@ -265,33 +262,14 @@ void register_candidate(struct skk_t *skk, char *key, char *val)
 	fclose(fp);
 }
 
-void fix_candidate(struct skk_t *skk, struct list_t **list, int size)
-{
-	char val[size + 1];
-
-	list_getstr(&skk->dict, val, size);
-	register_candidate(skk, skk->stored_key, val);
-	write_str(skk->fd, val, size);
-
-	change_mode(skk, ~MODE_COOK);
-	change_mode(skk, ~MODE_SELECT);
-	change_mode(skk, ~MODE_APPEND);
-}
-
 void reset_candidate(struct skk_t *skk, int size, bool fixed)
 {
 	int select = skk->select, argc = skk->parm.argc;
 	char **argv = skk->parm.argv, str[size + 1];
 
 	if (fixed && (0 <= select && select < argc)) {
-		if (skk->mode & MODE_DICT) {
-			list_push_back_n(&skk->dict, argv[select], strlen(argv[select]));
-			list_copy(&skk->dict, &skk->append);
-		}
-		else {
-			write_str(skk->fd, argv[select], strlen(argv[select]));
-			write_list(skk->fd, &skk->append, list_size(&skk->append));
-		}
+		write_str(skk->fd, argv[select], strlen(argv[select]));
+		write_list(skk->fd, &skk->append, list_size(&skk->append));
 		register_candidate(skk, list_getstr(&skk->key, str, size), argv[select]);
 	}
 	skk->select = SELECT_EMPTY;
@@ -313,24 +291,18 @@ void erase_buffer(struct skk_t *skk)
 
 void redraw_buffer(struct skk_t *skk)
 {
-	if (skk->mode & MODE_DICT)
-		skk->kwrote += write_str(skk->fd, mark_dict, strlen(mark_dict));
-
 	if (skk->mode & MODE_COOK) {
-		skk->kwrote += write_str(skk->fd, mark_cook, strlen(mark_cook));
-		skk->kwrote += write_list(skk->fd, &skk->dict, list_size(&skk->dict));
+		skk->kwrote = write_str(skk->fd, mark_cook, strlen(mark_cook));
 		skk->kwrote += write_list(skk->fd, &skk->key, list_size(&skk->key));
 	}
 	else if (skk->mode & MODE_APPEND) {
-		skk->kwrote += write_str(skk->fd, mark_cook, strlen(mark_cook));
-		skk->kwrote += write_list(skk->fd, &skk->dict, list_size(&skk->dict));
+		skk->kwrote = write_str(skk->fd, mark_cook, strlen(mark_cook));
 		skk->kwrote += write_list(skk->fd, &skk->key, list_size(&skk->key) - 1);
 		skk->kwrote += write_str(skk->fd, mark_append, strlen(mark_append));
 		skk->kwrote += write_list(skk->fd, &skk->append, list_size(&skk->append));
 	}
 	else if (skk->mode & MODE_SELECT) {
-		skk->kwrote += write_str(skk->fd, mark_select, strlen(mark_select));
-		skk->kwrote += write_list(skk->fd, &skk->dict, list_size(&skk->dict));
+		skk->kwrote = write_str(skk->fd, mark_select, strlen(mark_select));
 		skk->kwrote += write_str(skk->fd, skk->parm.argv[skk->select], strlen(skk->parm.argv[skk->select]));
 		skk->kwrote += write_list(skk->fd, &skk->append, list_size(&skk->append));
 	}
@@ -338,9 +310,8 @@ void redraw_buffer(struct skk_t *skk)
 	skk->pwrote = write_list(skk->fd, &skk->preedit, list_size(&skk->preedit));
 
 	if (DEBUG)
-		fprintf(stderr, "\trefresh preedit pwrote:%d kwrote:%d key:%d append:%d preedit:%d dict:%d\n",
-			skk->pwrote, skk->kwrote,
-			list_size(&skk->key), list_size(&skk->append), list_size(&skk->preedit), list_size(&skk->dict));
+		fprintf(stderr, "\trefresh preedit pwrote:%d kwrote:%d key:%d append:%d preedit:%d\n",
+			skk->pwrote, skk->kwrote, list_size(&skk->key), list_size(&skk->append), list_size(&skk->preedit));
 }
 
 bool write_buffer(struct skk_t *skk, struct triplet_t *tp, bool is_double_consonant)
@@ -361,8 +332,6 @@ bool write_buffer(struct skk_t *skk, struct triplet_t *tp, bool is_double_conson
 			return true;
 		}
 	}
-	else if (skk->mode & MODE_DICT)
-		list_push_back_n(&skk->dict, val, len);
 	else
 		write_str(skk->fd, val, len);
 
@@ -391,12 +360,8 @@ void delete_buffer(struct skk_t *skk, char c)
 	}
 	else if (list_size(&skk->key) > 0)
 		utf8_delete_char(&skk->key);
-	else if (list_size(&skk->dict) > 0)
-		utf8_delete_char(&skk->key);
 	else if (skk->mode & MODE_COOK)
 		change_mode(skk, ~MODE_COOK);
-	else if (skk->mode & MODE_DICT)
-		change_mode(skk, ~MODE_DICT);
 	else
 		write_str(skk->fd, &c, 1);
 }

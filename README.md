@@ -4,7 +4,7 @@ yet another skk for terminal
 # description
 端末上で動作する簡易なskkです．
 
-# keybind
+# mode
 
 ## ASCII
 -	Ctrl + J: ひらがなモードへ

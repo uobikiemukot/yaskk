@@ -1,0 +1,5 @@
+#!/bin/sh
+nkf -w $1 \
+| sed -r 's|;[^/]+/|/|g' \
+#| sed -r 's|^([^a-zA-Z]+)k /|\1c /|g' \ # for dvorak (ca ci cu ce co)
+#| egrep -v "^[^a-zA-Z]+c /"

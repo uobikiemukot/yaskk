@@ -16,7 +16,7 @@ bool check_cook(struct skk_t *skk, uint8_t *c)
 		reset_buffer((struct list_t **[]){&skk->key, &skk->append, &skk->preedit, NULL});
 		return true;
 	}
-	else if (*c == ESC) {
+	else if (*c == ESC || *c == CTRL_G) {
 		change_mode(skk, ~MODE_COOK);
 		reset_buffer((struct list_t **[]){&skk->key, &skk->append, &skk->preedit, NULL});
 		return true;
@@ -25,7 +25,8 @@ bool check_cook(struct skk_t *skk, uint8_t *c)
 		change_mode(skk, MODE_SELECT);
 		reset_buffer((struct list_t **[]){&skk->append, &skk->preedit, NULL});
 	}
-	else if (*c == 'L') {
+	else if (*c == CTRL_L) {
+		hash_clear(skk->user_dict);
 		load_user(user_file, skk->user_dict);
 		return true;
 	}
@@ -52,7 +53,7 @@ bool check_append(struct skk_t *skk, uint8_t *c)
 		reset_buffer((struct list_t **[]){&skk->key, &skk->append, &skk->preedit, NULL});
 		return true;
 	}
-	else if (*c == ESC) {
+	else if (*c == ESC || *c == CTRL_G) {
 		change_mode(skk, MODE_COOK);
 		reset_buffer((struct list_t **[]){&skk->key, &skk->append, &skk->preedit, NULL});
 		return true;
@@ -72,7 +73,7 @@ bool check_select(struct skk_t *skk, uint8_t *c)
 		reset_buffer((struct list_t **[]){&skk->key, &skk->append, &skk->preedit, NULL});
 		return true;
 	}
-	else if (*c == ESC) {
+	else if (*c == ESC || *c == CTRL_G) {
 		reset_candidate(skk, list_size(&skk->key), false);
 		change_mode(skk, MODE_COOK);
 		if (islower(list_back(&skk->key)))
@@ -109,7 +110,7 @@ bool check_kana(struct skk_t *skk, uint8_t *c)
 {
 	if ((list_back(&skk->preedit) == 'z') && (*c == SPACE || *c == 'L' || *c == 'l')) 
 		; /* for "z ", "zL" and "zl" */
-	else if (*c == ESC) { /* for vi */
+	else if (*c == ESC || *c == CTRL_G) { /* for vi */
 		change_mode(skk, MODE_ASCII);
 		reset_buffer((struct list_t **[]){&skk->preedit, NULL});
 	}
@@ -170,6 +171,8 @@ void parse_control(struct skk_t *skk, uint8_t c)
 		else if (c == CTRL_P)
 			decrease_candidate(skk);
 	}
+	else if (skk->mode & MODE_COOK || skk->mode & MODE_APPEND || skk->mode & MODE_SELECT)
+		; /* ignore */
 	else
 		write_str(skk->fd, (char *) &c, 1);
 }

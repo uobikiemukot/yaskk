@@ -84,3 +84,21 @@ bool hash_create(struct hash_t *symtable[], char *key, char *val)
 		return true;
 	}
 }
+
+void hash_clear(struct hash_t *symtable[])
+{
+	int i, j;
+	struct hash_t *hp, *next;
+		
+
+	for (i = 0; i < MAX_ARGS; i++) {
+		for (hp = symtable[i]; hp != NULL; hp = next) {
+			next = hp->next;
+			free(hp->key);
+			for (j = 0; j < hp->count; j++)
+				free(hp->values[j]);
+			free(hp);
+		}
+		symtable[i] = NULL;
+	}
+}

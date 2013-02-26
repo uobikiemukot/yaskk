@@ -4,7 +4,7 @@ char *const exec_cmd = "sh";
 /* load files */
 const char *map_file = "/path/to/map";
 const char *dict_file = "/path/to/dict";
-const char *user_file = "/path/to/userdic";
+const char *user_file = "/path/to/userdict";
 
 /* mark */
 const char *mark_cook = "▽";

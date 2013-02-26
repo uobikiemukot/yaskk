@@ -19,8 +19,11 @@
 
 enum ctrl_chars {
 	NUL = 0x00,
+	CTRL_G = 0x07,
 	CTRL_H = 0x08,
 	CTRL_J = 0x0A,
+	CTRL_L = 0x0C,
+	CTRL_M = 0x0D,
 	CTRL_N = 0x0E,
 	CTRL_P = 0x10,
 	ESC = 0x1B,

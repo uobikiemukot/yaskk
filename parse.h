@@ -171,7 +171,7 @@ void parse_control(struct skk_t *skk, uint8_t c)
 		else if (c == CTRL_P)
 			decrease_candidate(skk);
 	}
-	else if (skk->mode & MODE_COOK || skk->mode & MODE_APPEND || skk->mode & MODE_SELECT)
+	else if (skk->mode & MODE_COOK || skk->mode & MODE_APPEND)
 		; /* ignore */
 	else
 		write_str(skk->fd, (char *) &c, 1);

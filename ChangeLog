@@ -12,3 +12,8 @@
 ## 2013-01-28
 -	version 0.0.2
 -	support user dictionary
+
+## 2013-10-03
+-	version 0.0.3
+-	allow one or more arguments after command
+-	change order of conversion candidates

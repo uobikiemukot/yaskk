@@ -9,12 +9,25 @@ yet another skk for terminal
 +	change conf.h (dictionary path or etc...)
 +	just type "make"
 
+add these lines to your screenrc for yass
+
+~~~
+bind j exec .!. yass
+bind k eval 'exec cat' kill redisplay
+~~~
+
+example of yasf
+
+~~~
+$ echo -e "\nUmi gaMiEru\n" | yasf
+海が見える
+~~~
+
 # usage
 
 ~~~
 $ yaskk
 ~~~
-or
 
 ~~~
 $ yaskk [command] [args]...

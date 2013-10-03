@@ -4,6 +4,17 @@ yet another skk for terminal
 # description
 端末上で動作する簡易なskkです．
 
+# usage
+
+~~~
+$ yaskk
+~~~
+or
+
+~~~
+$ yaskk [command] [args]...
+~~~
+
 # mode
 
 ## ASCII

@@ -4,6 +4,11 @@ yet another skk for terminal
 # description
 端末上で動作する簡易なskkです．
 
+# configure and make
+
++	change conf.h (dictionary path or etc...)
++	just type "make"
+
 # usage
 
 ~~~

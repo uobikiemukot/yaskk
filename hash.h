@@ -90,8 +90,8 @@ bool hash_create(struct hash_t *symtable[], char *key, char *val)
 		new_value->str = (char *) emalloc(strlen(val) + 1);
 		safe_strncpy(new_value->str, val, strlen(val) + 1);
 
-		new_value->next = hp->values;
-		hp->values = new_value;
+		vp_prev->next = new_value;
+		new_value->next = NULL;
 
 		return true;
 	}

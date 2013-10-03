@@ -194,17 +194,17 @@ void parse_select(struct skk_t *skk, uint8_t c, int size)
 		fprintf(stderr, "\tparse select key:%s select:%d\n", str, skk->select);
 	tp = (c == SPACE) ? &skk->okuri_nasi: &skk->okuri_ari;
 
-	if (skk->select >= SELECT_LOADED) {
+	if (skk->select >= SELECT_LOADED) { /* already loaded some candidates */
 		if (c == SPACE)
 			increase_candidate(skk);
 		else if (c == 'x')
 			decrease_candidate(skk);
 	}
-	else {
+	else { /* load new candidate */
 		reset_parm(&skk->parm);
-		if ((ep = table_lookup(tp, str)) != NULL)
-			get_candidate(skk, ep);
-		sort_candidate(skk, str);
+		if ((ep = table_lookup(tp, str)) != NULL) /* search dict file */
+			read_dictfile(skk, ep); /* found key: read entry from dict file */
+		append_userdict(skk, str); /* add user dict entry */
 
 		if (skk->parm.argc > 0)
 			skk->select = SELECT_LOADED;

@@ -38,6 +38,7 @@ enum misc {
 	SELECT_TIMEOUT = 20000,
 	INPUT_LIMIT = 6,
 	MAX_ARGS = 512,
+	TABLE_SIZE = 512,
 	MULTIPLIER = 37, // or 31
 };
 
@@ -74,9 +75,15 @@ struct list_t {
 	struct list_t *next;
 };
 
+struct hash_value_t {
+	char *str;
+	struct hash_value_t *next;
+};
+
 struct hash_t {
-	int count;
-	char *key, *values[MAX_ARGS];
+	//int count;
+	char *key;
+	struct hash_value_t *values;
 	struct hash_t *next;
 };
 
@@ -112,7 +119,7 @@ struct skk_t {
 	char entry[BUFSIZE];                  /* line buffer for dictionary */
 	struct map_t rom2kana;                /* romaji to kana map */
 	struct table_t okuri_ari, okuri_nasi; /* convert table */
-	struct hash_t *user_dict[MAX_ARGS];   /* hash table of user dict */
+	struct hash_t *user_dict[TABLE_SIZE]; /* hash table size of user dict */
 	struct list_t *key;                   /* keyword string for display */
 	struct list_t *append;                /* append string for append mode */
 	struct list_t *preedit;               /* preedit string for map lookup */

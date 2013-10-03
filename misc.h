@@ -166,7 +166,7 @@ void decrease_candidate(struct skk_t *skk)
 		skk->select = skk->parm.argc - 1;
 }
 
-bool get_candidate(struct skk_t *skk, struct entry_t *ep)
+bool read_dictfile(struct skk_t *skk, struct entry_t *ep)
 {
 	char buf[BUFSIZE], key[BUFSIZE];
 	FILE *fp;
@@ -186,31 +186,30 @@ bool get_candidate(struct skk_t *skk, struct entry_t *ep)
 	return (skk->parm.argc > 0) ? true: false;
 }
 
-void sort_candidate(struct skk_t *skk, char *key)
+void append_userdict(struct skk_t *skk, char *key)
 {
 	int i, j;
 	struct parm_t new;
 	struct hash_t *hp;
+	struct hash_value_t *vp;
 
 	if (DEBUG)
-		fprintf(stderr, "\tsort candidate key:%s\n", key);
+		fprintf(stderr, "\tappend candidate key:%s\n", key);
 
 	if ((hp = hash_lookup(skk->user_dict, key, "")) == NULL)
-		return;
+		return; /* no entry found */
 
-	if (DEBUG)
-		fprintf(stderr, "\thash entry:%d table entry:%d\n", hp->count, skk->parm.argc);
 	reset_parm(&new);
-	//for (i = hp->count - 1; i >= 0; i--) {
-	for (i = 0; i < hp->count; i++) {
-		new.argv[new.argc++] = hp->values[i];
+
+	for (vp = hp->values; vp != NULL; vp = vp->next) { /* add hash entry */
+		new.argv[new.argc++] = vp->str;
 		for (j = 0; j < skk->parm.argc; j++) {
-			if (strcmp((char *) hp->values[i], (char *) skk->parm.argv[j]) == 0)
-				skk->parm.argv[j] = "";
+			if (strcmp((char *) vp->str, (char *) skk->parm.argv[j]) == 0)
+				skk->parm.argv[j] = ""; /* remove duplicate entry */
 		}
 	}
 
-	for (i = 0; i < skk->parm.argc; i++) {
+	for (i = 0; i < skk->parm.argc; i++) { /* append dict entry */
 		if (strcmp((char *) skk->parm.argv[i], "") != 0)
 			new.argv[new.argc++] = skk->parm.argv[i];
 	}
@@ -240,8 +239,12 @@ void register_candidate(struct skk_t *skk, char *key, char *val)
 		|| fcntl(fd, F_SETLKW, &lock) < 0)
 		return;
 
+	/*
 	if (hash_create(skk->user_dict, key, val))
 		fprintf(fp, "%s /%s/\n", key, val);
+	*/
+	hash_create(skk->user_dict, key, val);
+	fprintf(fp, "%s /%s/\n", key, val); /* always write to userdic */
 
 	lock.l_type = F_UNLCK;
 	fcntl(fd, F_SETLK, &lock);

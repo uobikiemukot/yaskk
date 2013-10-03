@@ -90,7 +90,8 @@ int main(int argc, char *argv[])
 
 	pid = eforkpty(&skk.fd, NULL, &save_tm, &wsize);
 	if (pid == 0) /* child */
-		eexecvp(cmd, (char *const []){cmd, NULL});
+		//eexecvp(cmd, (char *const []){cmd, );
+		eexecvp(cmd, argv + 1);
 
 	/* main loop */
 	while (loop_flag) {

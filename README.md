@@ -4,7 +4,9 @@ yet another skk for terminal
 # description
 端末上で動作する簡易なskkです．
 
-# configure and make
+# configure
+
+how to build yaskk
 
 +	change conf.h (dictionary path or etc...)
 +	just type "make"
@@ -62,7 +64,7 @@ $ yaskk [command] [args]...
 -	Ctrl + J: 選択中の候補を確定させる
 -	ESC: 変換モードへ
 -	'l': 選択中の候補を確定しASCIIモードへ
--	'q': 選択中の候補を確定しひらがな・カナカナのトグル
+-	'q': 選択中の候補を確定しひらがな・カナカナのトグル(未実装)
 -	others: 選択中の候補を確定し変換モードへ
 
 # license

@@ -17,11 +17,8 @@ add these lines to your screenrc for yass
 bind j exec .!. yass
 bind k eval 'exec cat' kill redisplay
 ~~~
-# usage
 
-~~~
-$ yaskk
-~~~
+# usage
 
 ~~~
 $ yaskk [command] [args]...
@@ -32,6 +29,7 @@ example of yasf
 ~~~
 $ echo -e "\nUmi gaMiEru\n" | yasf
 海が見える
+
 ~~~
 
 # mode

@@ -1,6 +1,6 @@
-CC = gcc
-CFLAGS += -Wall -std=c99 -pedantic
-LDFLAGS +=
+CC      ?= gcc
+CFLAGS  ?= -Wall -Wextra -std=c99 -pedantic -O3 -pipe -s
+LDFLAGS ?=
 
 HDR = *.h
 DST = yaskk

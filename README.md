@@ -1,15 +1,29 @@
 # yaskk
+
 yet another skk for terminal
 
-# description
-端末上で動作する簡易なskkです．
+## description
 
-# configure
+simple skk (japanese input method)
+
+## configure
 
 how to build yaskk
 
-+	change conf.h (dictionary path or etc...)
++	change conf.h (dictionary path, keymap, mark, etc...)
 +	just type "make"
+
+## build dictionary
+
+ $ cd tool/
+ (edit roma2kana)
+ $ ./dict_builder.sh M roma2kana > /path/to/dict # use SKK-JISYO.M
+
+## usage
+
+~~~
+$ yaskk [command] [args]...
+~~~
 
 add these lines to your screenrc for yass
 
@@ -18,53 +32,48 @@ bind j exec .!. yass
 bind k eval 'exec cat' kill redisplay
 ~~~
 
-# usage
+## mode
 
 ~~~
-$ yaskk [command] [args]...
+        +-----------+
+        |   ASCII   |
+        +-----------+
+        ^ |         ^
+      l | | Ctrl-J  | l
+        | v         |
+  +--------+     +--------+
+  |ひらがな|<--->|カタカナ|
+  +--------+  q  +--------+
+
+※ ひら・カタの状態でモードが変わるとpreeditは消える
+※ ひら・カタの状態で"zl"が来たときのみ，ASCIIモードには遷移しない
 ~~~
 
-example of yasf
 
 ~~~
-$ echo -e "\nUmi gaMiEru\n" | yasf
-海が見える
-
+                      +--------------------------------+
+                      |         ひら or カタ           |
+                      +--------------------------------+
+                upper | ^ Ctrl+J (途中経過が確定)      ^ l (確定後にASCIIモードへ)
+                      | | Ctrl+H (▽を消す)             | q (確定後にひら・カタのトグル)
+                      | | ESC or Ctrl+G (途中経過消失) | Ctrl+J or その他の文字 (確定後に元のモードに戻る)
+                      | |                              | Ctrl+H (確定後，1文字消える)
+                      | |                              |
+                      v |         ESC or Ctrl+G        |
+                   +--------+ <------------------ +--------+
+q (ひら・カタ変換) |  変換  |                     |  選択  | Ctrl+P or x: 前候補
+                   +--------+ ------------------> +--------+ Ctrl+N or SPACE: 次候補
+                            |        SPACE        ^
+                      upper |                     | 送り仮名が確定すると自動で遷移
+                            v                     | (促音では遷移しない)
+                            +---------------------+
+                            |  送り仮名確定待ち   |
+                            +---------------------+
+                              Ctrl+J: ひら or カタ モードへ戻る
+                              ESC: 変換モードへ戻る
 ~~~
 
-# mode
-
-## ASCII
--	Ctrl + J: ひらがなモードへ
-
-## ひらがな・カタカナ
--	ESC or Ctrl + G: ASCIIモードへ
--	'l': ASCIIモードへ
--	'q': ひらがな・カタカナのトグル
--	uppercase: 変換モードへ
-
-## 変換
--	Ctrl + J: 入力中の文字列を確定させる
--	ESC or Ctrl + G: 変換モードを抜ける
--	SPACE: 選択モードへ
--	Ctrl + L: ユーザ辞書の再読み込み
--	uppercase: 送り仮名モードへ
-
-## 送り仮名
--	Ctrl + J: 入力中の文字列を確定させる(送り仮名は含まない)
--	ESC or Ctrl + G: 変換モードへ
--	uppercase: 無視(小文字として扱われる)
-
-## 選択
--	Ctrl + P or 'x': 前候補へ
--	Ctrl + N or SPACE: 次候補へ
--	Ctrl + J: 選択中の候補を確定させる
--	ESC or Ctrl + G: 変換モードへ
--	'l': 選択中の候補を確定しASCIIモードへ
--	'q': 選択中の候補を確定しひらがな・カナカナのトグル(未実装)
--	others: 選択中の候補を確定し変換モードへ
-
-# license
+## license
 Copyright (c) 2012 haru (uobikiemukot at gmail dot com)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:

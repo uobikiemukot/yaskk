@@ -17,3 +17,7 @@
 -	version 0.0.3
 -	allow one or more arguments after command
 -	change order of conversion candidates
+
+## 2015-08-19
+-	version 0.1.0
+-	major rewrite

@@ -1,10 +1,10 @@
-#include "../common.h"
+#include "../yaskk.h"
+#include "../conf.h"
 #include "../util.h"
-#include "../list.h"
-#include "../hash.h"
-#include "../load.h"
-#include "../misc.h"
-#include "../parse.h"
+#include "../dict.h"
+#include "../utf8.h"
+#include "../line.h"
+#include "../skk.h"
 
 void set_rawmode(int fd, struct termios *save_tm)
 {
@@ -12,7 +12,7 @@ void set_rawmode(int fd, struct termios *save_tm)
 
 	tcgetattr(fd, save_tm);
 	tm = *save_tm;
-	tm.c_iflag = tm.c_oflag = RESET;
+	tm.c_iflag = tm.c_oflag = 0;
 	tm.c_cflag &= ~CSIZE;
 	tm.c_cflag |= CS8;
 	tm.c_lflag &= ~(ECHO | ISIG | ICANON);
@@ -45,7 +45,7 @@ int main(int argc, char *argv[])
 	struct termios save_tm;
 
 	/* init */
-	init_skk(&skk);
+	skk_init(&skk);
 	skk.fd = STDOUT_FILENO;
 	set_rawmode(STDIN_FILENO, &save_tm);
 
@@ -54,7 +54,7 @@ int main(int argc, char *argv[])
 		check_fds(&fds, &tv, STDIN_FILENO);
 		if (FD_ISSET(STDIN_FILENO, &fds)) {
 			size = read(STDIN_FILENO, buf, BUFSIZE);
-			if (size > INPUT_LIMIT)
+			if (size > INPUT_THRESHLD)
 				write(skk.fd, buf, size);
 			else if (size > 0)
 				parse(&skk, buf, size);

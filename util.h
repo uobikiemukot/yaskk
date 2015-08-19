@@ -1,144 +1,278 @@
-void error(char *str)
+/* See LICENSE for licence details. */
+/* error functions */
+enum loglevel_t {
+	DEBUG = 0,
+	WARN,
+	ERROR,
+	FATAL,
+};
+
+void logging(enum loglevel_t loglevel, char *format, ...)
 {
-	perror(str);
-	exit(EXIT_FAILURE);
+	va_list arg;
+	static const char *loglevel2str[] = {
+		[DEBUG] = "DEBUG",
+		[WARN]  = "WARN",
+		[ERROR] = "ERROR",
+		[FATAL] = "FATAL",
+	};
+
+	/* debug message is available on verbose mode */
+	if ((loglevel == DEBUG) && (VERBOSE == false))
+		return;
+
+	fprintf(stderr, ">>%s<<\t", loglevel2str[loglevel]);
+
+	va_start(arg, format);
+	vfprintf(stderr, format, arg);
+	va_end(arg);
 }
 
-void fatal(char *str)
-{
-	fprintf(stderr, "%s\n", str);
-	exit(EXIT_FAILURE);
-}
-
+/* wrapper of C functions */
 int eopen(const char *path, int flag)
 {
 	int fd;
+	errno = 0;
 
 	if ((fd = open(path, flag)) < 0) {
-		fprintf(stderr, "cannot open \"%s\"\n", path);
-		error("open");
+		logging(ERROR, "couldn't open \"%s\"\n", path);
+		logging(ERROR, "open: %s\n", strerror(errno));
 	}
 	return fd;
 }
 
-void eclose(int fd)
+int eclose(int fd)
 {
-	if (close(fd) < 0)
-		error("close");
+	int ret;
+	errno = 0;
+
+	if ((ret = close(fd)) < 0)
+		logging(ERROR, "close: %s\n", strerror(errno));
+
+	return ret;
 }
 
 FILE *efopen(const char *path, char *mode)
 {
 	FILE *fp;
+	errno = 0;
 
 	if ((fp = fopen(path, mode)) == NULL) {
-		fprintf(stderr, "cannot open \"%s\"\n", path);
-		error("fopen");
+		logging(ERROR, "couldn't open \"%s\"\n", path);
+		logging(ERROR, "fopen: %s\n", strerror(errno));
 	}
 	return fp;
 }
 
-void efclose(FILE *fp)
-{
-	if (fclose(fp) < 0)
-		error("fclose");
-}
-
-void *emalloc(size_t size)
-{
-	void *p;
-
-	if ((p = calloc(1, size)) == NULL)
-		error("calloc");
-	return p;
-}
-
-void eselect(int max_fd, fd_set *rd, fd_set *wr, fd_set *err, struct timeval *tv)
-{
-	if (select(max_fd, rd, wr, err, tv) < 0) {
-		if (errno == EINTR)
-			eselect(max_fd, rd, wr, err, tv);
-		else
-			error("select");
-	}
-}
-
-void ewrite(int fd, const void *buf, int size)
+int efclose(FILE *fp)
 {
 	int ret;
+	errno = 0;
 
-	if ((ret = write(fd, buf, size)) < 0)
-		error("write");
-	else if (ret < size)
-		ewrite(fd, (char *) buf + ret, size - ret);
+	if ((ret = fclose(fp)) < 0)
+		logging(ERROR, "fclose: %s\n", strerror(errno));
+
+	return ret;
 }
 
-void eexecvp(const char *file, char *const arg[])
+void *ecalloc(size_t nmemb, size_t size)
 {
-	if (execvp(file, arg) < 0)
-		error("execl");
+	void *ptr;
+	errno = 0;
+
+	if ((ptr = calloc(nmemb, size)) == NULL)
+		logging(ERROR, "calloc: %s\n", strerror(errno));
+
+	return ptr;
 }
 
-pid_t eforkpty(int *master, char *name, struct termios *termp, struct winsize *winp)
+void *erealloc(void *ptr, size_t size)
 {
-	/* name must be null */
-	int slave;
-	char *sname;
+	void *new;
+	errno = 0;
+
+	if ((new = realloc(ptr, size)) == NULL)
+		logging(ERROR, "realloc: %s\n", strerror(errno));
+
+	return new;
+}
+
+int eselect(int maxfd, fd_set *readfds, fd_set *writefds, fd_set *errorfds, struct timeval *tv)
+{
+	int ret;
+	errno = 0;
+
+	if ((ret = select(maxfd, readfds, writefds, errorfds, tv)) < 0) {
+		if (errno == EINTR)
+			return eselect(maxfd, readfds, writefds, errorfds, tv);
+		else
+			logging(ERROR, "select: %s\n", strerror(errno));
+	}
+	return ret;
+}
+
+ssize_t ewrite(int fd, const void *buf, size_t size)
+{
+	ssize_t ret;
+	errno = 0;
+
+	if ((ret = write(fd, buf, size)) < 0) {
+		if (errno == EINTR) {
+			logging(ERROR, "write: EINTR occurred\n");
+			return ewrite(fd, buf, size);
+		} else if (errno == EAGAIN || errno == EWOULDBLOCK) {
+			logging(ERROR, "write: EAGAIN or EWOULDBLOCK occurred, sleep %d usec\n", SLEEP_TIME);
+			usleep(SLEEP_TIME);
+			return ewrite(fd, buf, size);
+		} else {
+			logging(ERROR, "write: %s\n", strerror(errno));
+			return ret;
+		}
+	} else if (ret < (ssize_t) size) {
+		logging(ERROR, "data size:%zu write size:%zd\n", size, ret);
+		return ewrite(fd, (char *) buf + ret, size - ret);
+	}
+	return ret;
+}
+
+int esigaction(int signo, struct sigaction *act, struct sigaction *oact)
+{
+	int ret;
+	errno = 0;
+
+	if ((ret = sigaction(signo, act, oact)) < 0)
+		logging(ERROR, "sigaction: %s\n", strerror(errno));
+
+	return ret;
+}
+
+int etcgetattr(int fd, struct termios *tm)
+{
+	int ret;
+	errno = 0;
+
+	if ((ret = tcgetattr(fd, tm)) < 0)
+		logging(ERROR, "tcgetattr: %s\n", strerror(errno));
+
+	return ret;
+}
+
+int etcsetattr(int fd, int action, const struct termios *tm)
+{
+	int ret;
+	errno = 0;
+
+	if ((ret = tcsetattr(fd, action, tm)) < 0)
+		logging(ERROR, "tcgetattr: %s\n", strerror(errno));
+
+	return ret;
+}
+
+int eopenpty(int *amaster, int *aslave, char *aname,
+	const struct termios *termp, const struct winsize *winsize)
+{
+	int master;
+	char *name = NULL;
+	errno = 0;
+
+	if ((master = posix_openpt(O_RDWR | O_NOCTTY)) < 0
+		|| grantpt(master) < 0
+		|| unlockpt(master) < 0
+		|| (name = ptsname(master)) == NULL) {
+		logging(ERROR, "openpty: %s\n", strerror(errno));
+		return -1;
+	}
+	*amaster = master;
+	*aslave  = eopen(name, O_RDWR | O_NOCTTY);
+
+	if (aname)
+		/* XXX: we don't use the slave's name, do nothing */
+		(void) aname;
+		//strncpy(aname, name, _POSIX_TTY_NAME_MAX - 1);
+		//snprintf(aname, _POSIX_TTY_NAME_MAX, "%s", name);
+	if (termp)
+		etcsetattr(*aslave, TCSAFLUSH, termp);
+	if (winsize)
+		ioctl(*aslave, TIOCSWINSZ, winsize);
+
+	return 0;
+}
+
+pid_t eforkpty(int *amaster, char *name,
+	const struct termios *termp, const struct winsize *winsize)
+{
+	int master, slave;
 	pid_t pid;
 
-	if (((*master = posix_openpt(O_RDWR | O_NOCTTY)) < 0)
-		|| (grantpt(*master) < 0)
-		|| (unlockpt(*master) < 0)
-		|| ((sname = ptsname(*master)) == NULL))
-		error("forkpty");
+	if (eopenpty(&master, &slave, name, termp, winsize) < 0)
+		return -1;
 
-	slave = eopen(sname, O_RDWR | O_NOCTTY);
+	errno = 0;
+	pid   = fork();
+	if (pid < 0) {
+		logging(ERROR, "fork: %s\n", strerror(errno));
+		return pid;
+	} else if (pid == 0) { /* child */
+		close(master);
+		setsid();
 
-	if (termp)
-		tcsetattr(slave, TCSAFLUSH, termp);
-
-	if (winp)
-		ioctl(*master, TIOCSWINSZ, winp);
-
-	pid = fork();
-	if (pid < 0)
-		error("fork");
-	else if (pid == 0) { /* child */
 		dup2(slave, STDIN_FILENO);
 		dup2(slave, STDOUT_FILENO);
 		dup2(slave, STDERR_FILENO);
-		setsid();
-		ioctl(slave, TIOCSCTTY, NULL); /* ioctl may fail in Mac OS X */
+
+		/* XXX: this ioctl may fail in Mac OS X
+			ref http://www.opensource.apple.com/source/Libc/Libc-825.25/util/pty.c?txt */
+		if (ioctl(slave, TIOCSCTTY, NULL))
+			logging(WARN, "ioctl: TIOCSCTTY faild\n");
 		close(slave);
-		close(*master);
+
+		return 0;
 	}
-	else /* parent */
-		close(slave);
+	/* parent */
+	close(slave);
+	*amaster = master;
 
 	return pid;
 }
 
-/*
-size_t ustrlen(const uint8_t *str)
+int esetenv(const char *name, const char *value, int overwrite)
 {
-	return strlen((const char *) str);
+	int ret;
+	errno = 0;
+
+	if ((ret = setenv(name, value, overwrite)) < 0)
+		logging(ERROR, "setenv: %s\n", strerror(errno));
+
+	return ret;
 }
 
-char *ufgets(uint8_t *buf, int size, FILE *fp)
+int eexecvp(const char *file, char *const argv[])
 {
-	return fgets((char *) buf, size, fp);
+	int ret;
+	errno = 0;
+
+	if ((ret = execvp(file, argv)) < 0)
+		logging(ERROR, "execvp: %s\n", strerror(errno));
+
+	return ret;
+}
+
+/*
+int eexecl(const char *path)
+{
+	int ret;
+	errno = 0;
+
+	// XXX: assume only one argument is given
+	if ((ret = execl(path, path, NULL)) < 0)
+		logging(ERROR, "execl: %s\n", strerror(errno));
+
+	return ret;
 }
 */
 
-int not_slash(int c)
-{
-	if (c != 0x2F && !iscntrl(c))
-		return 1; /* true */
-	else
-		return 0; /* false */
-}
-
-void reset_parm(struct parm_t *pt)
+/* parse_arg functions */
+void parse_reset(struct parse_t *pt)
 {
 	int i;
 
@@ -147,33 +281,57 @@ void reset_parm(struct parm_t *pt)
 		pt->argv[i] = NULL;
 }
 
-void parse_entry(char *buf, struct parm_t *pt, int delim, int (is_valid)(int c))
+void parse_add(struct parse_t *pt, char *cp)
 {
-	int length;
-	char *cp;
+	if (pt->argc >= MAX_ARGS)
+		return;
 
-	length = strlen((char *) buf);
-	cp = buf;
+	//logging(DEBUG, "argv[%d]: %s\n", pt->argc, (cp == NULL) ? "NULL": cp);
 
-	while (cp <= &buf[length - 1]) {
-		if (*cp == delim)
+	pt->argv[pt->argc] = cp;
+	pt->argc++;
+}
+
+void parse_arg(char *buf, struct parse_t *pt, int delim, int (is_valid)(int c))
+{
+	/*
+		v..........v d           v.....v d v.....v ... d
+		(valid char) (delimiter)
+		argv[0]                  argv[1]   argv[2] ...   argv[argc - 1]
+	*/
+	size_t i, length;
+	char *cp, *vp;
+
+	if (buf == NULL)
+		return;
+
+	length = strlen(buf);
+	//logging(DEBUG, "parse_arg() length:%u\n", (unsigned) length);
+
+	vp = NULL;
+	for (i = 0; i < length; i++) {
+		cp = buf + i;
+
+		if (vp == NULL && is_valid(*cp))
+			vp = cp;
+
+		if (*cp == delim) {
 			*cp = '\0';
-		cp++;
-	}
-	cp = buf;
+			parse_add(pt, vp);
+			vp = NULL;
+		}
 
-start:
-	if (pt->argc <= MAX_ARGS && is_valid(*cp)) {
-		pt->argv[pt->argc] = cp;
-		pt->argc++;
+		if (i == (length - 1) && (vp != NULL || *cp == '\0'))
+			parse_add(pt, vp);
 	}
 
-	while (is_valid(*cp))
-		cp++;
+	//logging(DEBUG, "argc:%d\n", pt->argc);
+}
 
-	while (!is_valid(*cp) && cp <= &buf[length - 1])
-		cp++;
+void print_arg(struct parse_t *pt)
+{
+	fprintf(stderr, "\targc:%d\n", pt->argc);
 
-	if (cp <= &buf[length - 1])
-		goto start;
+	for (int i = 0; i < pt->argc; i++)
+		fprintf(stderr, "\targv[%d]: %s\n", i, pt->argv[i]);
 }

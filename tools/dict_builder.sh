@@ -36,16 +36,16 @@ l|L)
 	exit 2;;
 esac
 
-wget -q -nc $URL
+DICT_FILE=/tmp/`basename $URL`
 
-FILE=`basename $URL`
+wget -q -nc $URL -O $DICT_FILE
 
 cat $2 | awk '{if (NF == 3) print $0}' > $TMP_FILE
 
 # convert to UTF-8
 # remove line started by ascii printable
 # remove comment of candidate
-zcat $FILE \
+zcat $DICT_FILE \
 	| nkf -w -Lu \
 	| LANG=C grep -v "^[[:print:]].*" \
 	| sed 's|;[^;]*/|/|g' \

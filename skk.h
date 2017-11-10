@@ -85,7 +85,7 @@ bool skk_preedit(struct skk_t *skk, uint8_t ch)
 
 void skk_select(struct skk_t *skk, uint8_t ch)
 {
-	char keyword[LINE_LEN_MAX];
+	char keyword[LINE_LEN_MAX + 1];
 	struct dict_entry_t *entry;
 
 	if (skk->select == NULL) {
@@ -382,7 +382,8 @@ void parse(struct skk_t *skk, uint8_t *buf, ssize_t size)
 
 	for (i = 0; i < size; i++) {
 		ch = buf[i];
-		logging(DEBUG, "parsing... ch:0x%.2X current mode:%s\n", ch, mode2str[skk->mode]);
+		logging(DEBUG, "parsing... ch:0x%.2X current mode:[%d]%s\n",
+			ch, skk->mode, mode2str[skk->mode]);
 
 		/* if "ch" is not ascii (0x00 - 0x7F), pass through */
 		if (ch > 0x7F) {

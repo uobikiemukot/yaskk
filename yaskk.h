@@ -122,7 +122,7 @@ struct skk_t {
 	 * in select mode:
 	 *   cook: keyword of dict/hash lookup and restored string after select mode
 	 */
-	char restore[LINE_LEN_MAX];
+	char restore[LINE_LEN_MAX - 1];
 	/*
 	 * in append mode:
 	 *   cook + append[0]              : keyword of dict/hash lookup

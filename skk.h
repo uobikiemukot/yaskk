@@ -278,6 +278,9 @@ void mode_cursive_square(struct skk_t *skk, uint8_t ch)
 		else
 			remove_ucs_char(&skk->next, skk->next.cursor.insert - 1);
 		return;
+	} else if (ch == CR) {
+		if (preedit_length(&skk->next) == 0)
+			ewrite(skk->fd, &ch, 1);
 	} else if (iscntrl(ch)) {
 		//ewrite(skk->fd, &ch, 1);
 		return;

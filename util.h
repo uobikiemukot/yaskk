@@ -7,7 +7,7 @@ enum loglevel_t {
 	FATAL,
 };
 
-void logging(enum loglevel_t loglevel, char *format, ...)
+void logging(enum loglevel_t loglevel, char * restrict format, ...)
 {
 	va_list arg;
 	static const char *loglevel2str[] = {
@@ -17,7 +17,7 @@ void logging(enum loglevel_t loglevel, char *format, ...)
 		[FATAL] = "FATAL",
 	};
 
-	/* debug message is available on verbose mode */
+	/* debug message is only available on verbose mode */
 	if ((loglevel == DEBUG) && (VERBOSE == false))
 		return;
 
@@ -271,67 +271,76 @@ int eexecl(const char *path)
 }
 */
 
+int efflush(FILE *stream)
+{
+	int ret;
+	errno = 0;
+
+	if ((ret = fflush(stream)) == EOF)
+		logging(ERROR, "execvp: %s\n", strerror(errno));
+
+	return ret;
+}
+
 /* parse_arg functions */
-void parse_reset(struct parse_t *pt)
+void reset_args(struct args_t *args)
 {
-	int i;
-
-	pt->argc = 0;
-	for (i = 0; i < MAX_ARGS; i++)
-		pt->argv[i] = NULL;
+	args->len = 0;
+	for (int i = 0; i < MAX_ARGS; i++)
+		args->v[i] = NULL;
 }
 
-void parse_add(struct parse_t *pt, char *cp)
+bool add_args(struct args_t *args, char *cp)
 {
-	if (pt->argc >= MAX_ARGS)
-		return;
+	if (args->len >= MAX_ARGS || cp == NULL)
+		return false;
 
-	//logging(DEBUG, "argv[%d]: %s\n", pt->argc, (cp == NULL) ? "NULL": cp);
+	//logging(DEBUG, "add_args(): args->v[%d]: %s\n", args->len, cp);
 
-	pt->argv[pt->argc] = cp;
-	pt->argc++;
+	args->v[args->len] = cp;
+	args->len++;
+
+	return true;
 }
 
-void parse_arg(char *buf, struct parse_t *pt, int delim, int (is_valid)(int c))
+int parse_args(char *buf, struct args_t *args, int delim, int (is_valid)(int c))
 {
 	/*
 		v..........v d           v.....v d v.....v ... d
 		(valid char) (delimiter)
 		argv[0]                  argv[1]   argv[2] ...   argv[argc - 1]
 	*/
-	size_t i, length;
+	int len;
 	char *cp, *vp;
 
 	if (buf == NULL)
-		return;
+		return 0;
 
-	length = strlen(buf);
-	//logging(DEBUG, "parse_arg() length:%u\n", (unsigned) length);
+	len = (int) strlen(buf);
+	//logging(DEBUG, "parse_args(): length:%u\n", (unsigned) len);
 
 	vp = NULL;
-	for (i = 0; i < length; i++) {
+	for (int i = 0; i < len; i++) {
 		cp = buf + i;
 
 		if (vp == NULL && is_valid(*cp))
 			vp = cp;
-
-		if (*cp == delim) {
+		else if (*cp == delim)
 			*cp = '\0';
-			parse_add(pt, vp);
+
+		if (vp != NULL && (i == (len - 1) || *cp == '\0')) {
+			add_args(args, vp);
 			vp = NULL;
 		}
-
-		if (i == (length - 1) && (vp != NULL || *cp == '\0'))
-			parse_add(pt, vp);
 	}
 
-	//logging(DEBUG, "argc:%d\n", pt->argc);
+	return args->len;
 }
 
-void print_arg(struct parse_t *pt)
+void print_args(struct args_t *args)
 {
-	fprintf(stderr, "\targc:%d\n", pt->argc);
+	fprintf(stderr, "\targs:%d\n", args->len);
 
-	for (int i = 0; i < pt->argc; i++)
-		fprintf(stderr, "\targv[%d]: %s\n", i, pt->argv[i]);
+	for (int i = 0; i < args->len; i++)
+		fprintf(stderr, "\targs->v[%d]: %s\n", i, args->v[i]);
 }

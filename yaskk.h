@@ -18,6 +18,7 @@
 #include <termios.h>
 #include <unistd.h>
 #include <inttypes.h>
+#include <execinfo.h>
 
 #define SIGWINCH 28
 
@@ -31,7 +32,7 @@ enum {
 	INIT_ENTRY     = 8,
 	KEYSIZE        = 64,
 	LBUFSIZE       = 1024,
-	MAX_CELLS      = 1024,
+	MAX_CELLS      = 16,
 	UTF8_LEN_MAX   = 3,
 	LINE_LEN_MAX   = UTF8_LEN_MAX * MAX_CELLS + 1,
 };
@@ -48,7 +49,7 @@ enum ctrl_code {
 
 enum key_name_t {
 	CTRL_AT = 0,
-	CTRL_A, CTRL_B, CTRL_C, CTRL_D, 
+	CTRL_A, CTRL_B, CTRL_C, CTRL_D,
 	CTRL_E, CTRL_F, CTRL_G, CTRL_H,
 	CTRL_I, CTRL_J, CTRL_K, CTRL_L,
 	CTRL_M, CTRL_N, CTRL_O, CTRL_P,
@@ -77,52 +78,54 @@ const char *mode2str[] = {
 	[MODE_SELECT]  = "MODE_SELECT",
 };
 
-/* struct for parse_arg() */
-struct parse_t {
-	int argc;
-	char *argv[MAX_ARGS];
+/* struct for parse_args() */
+struct args_t {
+	char *buf;         /* buffer of dictionary entry (include composition word and candidate words) */
+	int len;           /* number of candidate */
+	char *v[MAX_ARGS]; /* pointer to each candidate */
 };
 
-/* struct for dictionary */
-struct dict_entry_t {
-	char *lbuf;
-	char *keyword;
-	struct parse_t candidate;
+/* struct for entry of dictionary */
+struct entry_t {
+	char *word;         /* composition word */
+	struct args_t args; /* candidate words */
 };
 
 struct dict_t {
-	struct dict_entry_t *table; /* dynamic array */
-	int entry_count;            /* num of real entry size */
-	int table_size;             /* num of allocated entry size */
+	struct entry_t *entry; /* dynamic array of entries of dictionary */
+	int size;              /* num of real entry size */
+	int mem_size;          /* num of allocated entry size */
 };
 
 /* struct for line edit */
 struct line_t {
-	uint32_t cells[MAX_CELLS]; /* UCS2 codepoint */
+	uint32_t cells[MAX_CELLS]; /* array of UCS2 codepoint */
 	struct cursor_t {
-		int insert;            /* character insert position */
-		int preedit;           /* position of first preedit character */
+		int insert;              /* character insert position */
+		int preedit;             /* position of first preedit character */
 	} cursor;
+};
+
+/* for line edit */
+struct edit_t {
+	int fd;                /* master of pseudo terminal */
+	struct line_t current; /* current line status */
+	struct line_t next;    /* next line status */
+	bool need_clear;       /* output all characters and clear line buffer */
 };
 
 /* struct for skk */
 struct skk_t {
-	int fd;                /* master of pseudo terminal */
 	int mode;              /* skk mode */
-	/* for line edit */
-	struct line_t current; /* current line status */
-	struct line_t next;    /* next line status */
-	bool need_flush;       /* output all characters and clear line buffer */
 	/* for candidate */
-	struct dict_t dict;
-	struct parse_t *select;
-	int index;
+	struct args_t *select; /* matched candidate */
+	int index;             /* index of selected candidate currently */
 	/* saved string */
 	/*
 	 * in select mode:
 	 *   cook: keyword of dict/hash lookup and restored string after select mode
 	 */
-	char restore[LINE_LEN_MAX - 1];
+	char restore[LINE_LEN_MAX];
 	/*
 	 * in append mode:
 	 *   cook + append[0]              : keyword of dict/hash lookup
@@ -136,5 +139,5 @@ struct skk_t {
 };
 
 /* global */
-volatile sig_atomic_t LoopFlag      = true;
-volatile sig_atomic_t WindowResized = false;
+volatile sig_atomic_t child_is_alive = true;
+volatile sig_atomic_t window_resized = false;

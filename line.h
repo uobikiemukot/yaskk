@@ -26,7 +26,7 @@
  *         ^                              ^
  *         | insert                       | insert
  *
- * after line update, line buffer is immediately flushed (set need_flash flag)
+ * after line update, line buffer is immediately flushed (set need_clear flag)
  * insert and preedit are always "0"
  *
  * MODE_CURSIVE or MODE_SQUARE:
@@ -50,195 +50,333 @@
  *            | preedit
  */
 
-/* utility functions */
-void line_init(struct line_t *line)
+/* fuctnios for line_t */
+void init_line(struct line_t *line)
 {
 	memset(line->cells, '\0', sizeof(uint32_t) * MAX_CELLS);
 	line->cursor.insert  = 0;
 	line->cursor.preedit = 0;
 }
 
-int line_length(struct line_t *line)
-{
-	return line->cursor.insert;
-}
-
-int preedit_length(struct line_t *line)
-{
-	return (line->cursor.insert - line->cursor.preedit);
-}
-
-int cook_length(struct line_t *line)
-{
-	return (line->cursor.preedit - 1); /* ignore cook/select mark */
-}
-
-void line_show(struct line_t *line)
+void show_line(struct line_t *line)
 {
 	size_t size;
-	char utf[UTF8_LEN_MAX + 1];
+	char utf8[UTF8_LEN_MAX + 1]; // nul terminated
 
-	fprintf(stderr, "cursor insert:%d preedit:%d\n", line->cursor.insert, line->cursor.preedit);
+	logging(DEBUG, "cursor (insert: %d, preedit: %d)\n", line->cursor.insert, line->cursor.preedit);
 
 	if (line->cursor.insert == 0) {
-		fprintf(stderr, "| (nul) |\n");
+		logging(DEBUG, "| (null) |\n");
 		return;
 	}
 
 	for (int i = 0; i < line->cursor.insert; i++) {
-		if ((size = utf8_encode(line->cells[i], utf)) > 0)
-			fprintf(stderr, "| %s ", utf);
+		if ((size = utf8_encode(line->cells[i], utf8)) > 0)
+			logging(DEBUG, "| %s ", utf8);
 	}
-	fprintf(stderr, "|\n");
+	logging(DEBUG, "|\n");
 }
 
-void move_cursor(struct cursor_t *cursor, int offset, uint32_t ucs)
+bool accessible_index(struct line_t *line, int index)
 {
+	/*
+	void *trace[BUFSIZE];
+	int n = backtrace(trace, sizeof(trace) / sizeof(trace[0]));
+	backtrace_symbols_fd(trace, n, STDERR_FILENO);
+	*/
+
+	if (0 <= index && index < line->cursor.insert)
+		return true;
+
+	logging(DEBUG, "accessible_index(): index out of range (index: %d, insert: %d) | ", index, line->cursor.insert);
+
+	return false;
+}
+
+bool insertable_index(struct line_t *line, int index)
+{
+	if (0 <= index && index <= line->cursor.insert)
+		return true;
+
+	logging(DEBUG, "insertable_index(): index out of range (index: %d, insert: %d) | ", index, line->cursor.insert);
+	return false;
+}
+
+int line_len(struct edit_t *edit)
+{
+	return edit->next.cursor.insert;
+}
+
+int preedit_len(struct edit_t *edit)
+{
+	return (edit->next.cursor.insert - edit->next.cursor.preedit);
+}
+
+int cook_len(struct edit_t *edit)
+{
+	return (edit->next.cursor.preedit - 1); /* ignore cook/select mark */
+}
+
+int preedit_cursor(struct edit_t *edit)
+{
+	return edit->next.cursor.preedit;
+}
+
+int insert_cursor(struct edit_t *edit)
+{
+	return edit->next.cursor.insert;
+}
+
+/* functions for cursor_t */
+bool move_cursor(struct cursor_t *cursor, int offset, uint32_t ucs2)
+{
+	int preedit = cursor->preedit, insert = cursor->insert;
+
 	/*
 	 * if ucs is not ascii character, update preedit cursor too.
 	 *     cook character must be multibyte UTF-8 sequence (non ascii character), so update preedit cursor.
 	 */
-	if (ucs > 0x7F || ucs == MARK_SELECT || ucs == MARK_COOK || ucs == MARK_APPEND)
-		cursor->preedit += offset;
+	if (ucs2 > 0x7F || ucs2 == MARK_SELECT || ucs2 == MARK_COOK || ucs2 == MARK_APPEND)
+		preedit += offset;
 
 	/*
 	 * always increment insert cursor
 	 */
-	cursor->insert += offset;
+	insert += offset;
 
-	assert(cursor->insert >= 0);
-	assert(cursor->insert < MAX_CELLS);
-	assert(cursor->preedit >= 0);
-	assert(cursor->preedit < MAX_CELLS);
-	assert(cursor->preedit <= cursor->insert);
+	if ((insert < 0 || insert >= MAX_CELLS) || (preedit < 0 || preedit >= MAX_CELLS) || preedit > insert) {
+		logging(DEBUG, "move_cursor(): cursor out of range (preedit: %d, insert: %d, MAX_CELLS: %d) | ", preedit, insert, MAX_CELLS);
+		return false;
+	}
+
+	cursor->preedit = preedit;
+	cursor->insert  = insert;
+	return true;
 }
 
-/* remove functions */
-void remove_ucs_char(struct line_t *line, int index)
+/* functions for edit_t */
+void init_edit(struct edit_t *edit)
 {
-	uint32_t ucs;
-
-	assert(index >= 0);
-	assert(index < line->cursor.insert);
-
-	ucs = line->cells[index];
-
-	if (index < (line->cursor.insert - 1)) /* not last char */
-		memmove(line->cells + index, line->cells + index + 1, sizeof(uint32_t) * (line->cursor.insert - index - 1));
-
-	move_cursor(&line->cursor, -1, ucs);
+	init_line(&edit->current);
+	init_line(&edit->next);
+	edit->need_clear = false;
+	edit->fd = -1;
 }
 
-void remove_chars(struct line_t *line, int from, int to)
+void show_edit(struct edit_t *edit)
 {
-	int count = 0, length = to - from + 1;
+	logging(DEBUG, "current line:\n");
+	show_line(&edit->current);
+	logging(DEBUG, "next line:\n");
+	show_line(&edit->next);
+	logging(DEBUG, "need_clear: %s\n", edit->need_clear ? "true": "false");
+}
 
-	if (length > line_length(line)
-		|| from < 0 || to < 0
-		|| from >= line->cursor.insert
-		|| to >= line->cursor.insert)
-		return;
+bool remove_char(struct edit_t *edit, int index)
+{
+	uint32_t ucs2;
+	struct line_t *line = &edit->next;
+
+	if (!accessible_index(line, index)) {
+		logging(DEBUG, "remove_char() | ");
+		return false;
+	}
+
+	ucs2 = line->cells[index];
 
 	/*
-	assert(length <= line_length(line));
-	assert(from >= 0);
-	assert(from < line->cursor.insert);
-	assert(to >= 0);
-	assert(to < line->cursor.insert);
-	*/
+	 * if not last char, shrink cells
+	 */
+	if (index < (line->cursor.insert - 1))
+		memmove(line->cells + index, line->cells + index + 1, sizeof(line->cells[0]) * (line->cursor.insert - index - 1));
 
-	while (count < length) {
-		remove_ucs_char(line, from);
-		count++;
+	if (!move_cursor(&line->cursor, -1, ucs2)) {
+		logging(DEBUG, "remove_char(): (ucs2: U+%.4X, offset: %d) | ", ucs2, -1);
+		return false;
 	}
+
+	return true;
 }
 
-void remove_all_chars(struct line_t *line)
+bool remove_last_char(struct edit_t *edit)
 {
-	line->cursor.insert  = 0;
-	line->cursor.preedit = 0;
+	struct line_t *line = &edit->next;
+	return remove_char(edit, line->cursor.insert - 1);
 }
 
-/* append functions */
-void append_ucs_char(struct line_t *line, int index, uint32_t ucs)
+int remove_chars(struct edit_t *edit, int from, int to)
 {
-	assert(index >= 0);
-	assert(index <= line->cursor.insert);
+	int count = 0, len = to - from + 1;
+	struct line_t *line = &edit->next;
 
-	if (index < line->cursor.insert) /* not append to tail */
-		memmove(line->cells + index + 1, line->cells + index, sizeof(uint32_t) * (line->cursor.insert - index));
+	if (!accessible_index(line, from) || !accessible_index(line, to)) {
+		logging(DEBUG, "remove_chars(): (from: %d, to: %d) | ", from, to);
+		return -1;
+	}
 
-	line->cells[index] = ucs;
-	move_cursor(&line->cursor, +1, ucs);
-}
-
-int append_utf8_str(struct line_t *line, int index, const char *utf8_str)
-{
-	uint32_t ucs = '\0';
-	int size, count = 0;
-	const char *cp;
-
-	cp = utf8_str;
-	while (*cp != '\0') {
-		size = utf8_decode(cp, &ucs);
-		cp  += size;
-
-		if (ucs != MALFORMED_CHARACTER) {
-			append_ucs_char(line, index + count, ucs);
-			count++;
+	while (count < len) {
+		if (!remove_char(edit, from)) {
+			logging(DEBUG, "remove_chars(): (count: %d) | ", count);
+			break;
 		}
+		count++;
 	}
 	return count;
 }
 
-/* swap functions */
-void swap_ucs_char(struct line_t *line, int index, uint32_t ucs)
+int remove_preedit_chars(struct edit_t *edit)
 {
-	assert(index >= 0);
-	assert(index < line->cursor.insert);
-
-	line->cells[index] = ucs;
+	struct line_t *line = &edit->next;
+	return remove_chars(edit, line->cursor.preedit, line->cursor.insert - 1);
 }
 
-/* get string functions */
-uint32_t get_ucs_char(struct line_t *line, int index)
+void remove_all(struct edit_t *edit)
 {
-	if (line_length(line) == 0)
-		return '\0';
+	edit->next.cursor = (struct cursor_t){ .preedit = 0, .insert = 0 };
+}
 
-	assert(index >= 0);
-	assert(index < line->cursor.insert);
+/* insert functions */
+bool insert_char(struct edit_t *edit, int index, uint32_t ucs)
+{
+	struct line_t *line = &edit->next;
+
+	if (!insertable_index(line, index)) {
+		logging(DEBUG, "insert_char() | ");
+		return false;
+	}
+
+	/*
+	 * not insert to tail, shift cells
+	 */
+	if (index < line->cursor.insert)
+		memmove(line->cells + index + 1, line->cells + index, sizeof(line->cells[0]) * (line->cursor.insert - index));
+
+	line->cells[index] = ucs;
+
+	if (!move_cursor(&line->cursor, 1, ucs)) {
+		logging(DEBUG, "insert_char(): (ucs: U+%.4X, offset: %d) | ", ucs, 1);
+		return false;
+	}
+
+	return true;
+}
+
+bool append_char(struct edit_t *edit, uint32_t ucs)
+{
+	return insert_char(edit, edit->next.cursor.insert, ucs);
+}
+
+int insert_chars(struct edit_t *edit, int index, const char *utf8)
+{
+	int size, count = 0;
+	uint32_t ucs2;
+	const char *cp, *endp;
+
+	if (utf8 == NULL) {
+		logging(DEBUG, "insert_chars(): (utf8: NULL) | ");
+		return -1;
+	}
+
+	cp   = utf8;
+	endp = utf8 + strlen(utf8);
+
+	while (*cp != '\0' && cp < endp) {
+		if ((size = utf8_decode(cp, &ucs2)) < 0) {
+			logging(DEBUG, "insert_chars(): (ucs2: U+%.4X) | ", ucs2);
+			break;
+		}
+		cp  += size;
+
+		if (!insert_char(edit, index + count, ucs2)) {
+			logging(DEBUG, "insert_chars(): (index + count: %d + %d, ucs2: U+%.4X) | ", index, count, ucs2);
+			break;
+		}
+		count++;
+	}
+	return count;
+}
+
+int append_chars(struct edit_t *edit, const char *utf8)
+{
+	return insert_chars(edit, edit->next.cursor.insert, utf8);
+}
+
+int insert_preedit_chars(struct edit_t *edit, char *utf8)
+{
+	struct line_t *line = &edit->next;
+	return insert_chars(edit, line->cursor.preedit, utf8);
+}
+
+/* replace functions */
+bool replace_char(struct edit_t *edit, int index, uint32_t ucs2)
+{
+	struct line_t *line = &edit->next;
+
+	if (!accessible_index(line, index)) {
+		logging(DEBUG, "replace_char() | ");
+		return false;
+	}
+
+	line->cells[index] = ucs2;
+	return true;
+}
+
+/* get functions */
+uint32_t get_char(struct edit_t *edit, int index)
+{
+	struct line_t *line = &edit->next;
+
+	if (!accessible_index(line, index)) {
+		logging(DEBUG, "get_char() | ");
+		return UTF8_MALFORMED_CHARACTER;
+	}
 
 	return line->cells[index];
 }
 
-int get_utf8_str(struct line_t *line, int from, int to, char *utf8_buf)
+int get_chars(struct edit_t *edit, int from, int to, char *utf8)
 {
+	struct line_t *line = &edit->next;
 	char *cp;
 	int size;
 
-	//logging(DEBUG, "get_utf8_str(): from:%d to:%d\n", from, to);
-	//line_show(line);
-
-	/*
-	assert(from >= 0);
-	assert(from < line->cursor.insert);
-	assert(to >= 0);
-	assert(to < line->cursor.insert);
-	*/
-
-	if (from < 0 || to < 0
-		|| from >= line->cursor.insert
-		|| to >= line->cursor.insert) {
-		return 0;
+	if (utf8 == NULL) {
+		logging(DEBUG, "get_chars(): (utf8: NULL) | ");
+		return -1;
 	}
 
-	cp = utf8_buf;
+	cp = utf8;
 	for (int i = from; i <= to; i++) {
-		if ((size = utf8_encode(line->cells[i], cp)) > 0)
-			cp += size;
+		if ((size = utf8_encode(line->cells[i], cp)) < 0) {
+			logging(DEBUG, "get_chars(): (U+%.4X) | ", line->cells[i]);
+			break;
+		}
+		cp += size;
 	}
-	return (cp - utf8_buf);
+
+	return (cp - utf8);
+}
+
+int get_preedit_chars(struct edit_t *edit, char *utf8)
+{
+	struct line_t *line = &edit->next;
+	return get_chars(edit, line->cursor.preedit, line->cursor.insert - 1, utf8);
+}
+
+int get_cook_chars(struct edit_t *edit, char *utf8)
+{
+	struct line_t *line = &edit->next;
+	/* skip cook mark */
+	return get_chars(edit, 1, line->cursor.insert - 1, utf8);
+}
+
+/* cursive/square conversion */
+void toggle_cursive_square(struct edit_t *edit)
+{
+	struct line_t *line = &edit->next;
+
+	for (int i = 0; i < line->cursor.insert; i++)
+		line->cells[i] = convert_cursive_square(line->cells[i]);
 }
 
 /* update function */
@@ -250,11 +388,12 @@ void send_backspace(int fd, int count)
 		ewrite(fd, backspace, strlen(backspace));
 }
 
-void line_update(struct line_t *current, struct line_t *next, bool *need_flush, int fd)
+void line_update(struct edit_t *edit)
 {
 	int pos, diff;
-	char utf[UTF8_LEN_MAX + 1];
+	char utf8[UTF8_LEN_MAX + 1];
 	size_t size;
+	struct line_t *current = &edit->current, *next = &edit->next;
 
 	/*
 	 * step1: check first different character between currentline and nextline
@@ -290,14 +429,13 @@ void line_update(struct line_t *current, struct line_t *next, bool *need_flush, 
 	 *
 	 * (step4: display flushing)
 	 *
-	 * if need_flush flag is set, remove all characters of current/next line
+	 * if need_clear flag is set, remove all characters of current/next line
 	 *
 	 */
 
 	/* step1 */
 	for (pos = 0; pos < current->cursor.insert; pos++) {
-		if (current->cells[pos] != next->cells[pos]
-			|| pos >= next->cursor.insert)
+		if (current->cells[pos] != next->cells[pos] || pos >= next->cursor.insert)
 			break;
 	}
 	logging(DEBUG, "pos of first different character:%d\n", pos);
@@ -306,26 +444,22 @@ void line_update(struct line_t *current, struct line_t *next, bool *need_flush, 
 	diff = current->cursor.insert - pos;
 	logging(DEBUG, "number of send backspace:%d\n", diff);
 	if (diff > 0)
-		send_backspace(fd, diff);
+		send_backspace(edit->fd, diff);
 
 	/* step3 */
 	logging(DEBUG, "update current line from %d to %d\n", pos, next->cursor.insert - 1);
 	for (; pos < next->cursor.insert; pos++) {
 		current->cells[pos] = next->cells[pos]; /* uposdate current line buffer */
-		if ((size = utf8_encode(next->cells[pos], utf)) > 0)
-			ewrite(fd, utf, size);
+		if ((size = utf8_encode(next->cells[pos], utf8)) > 0)
+			ewrite(edit->fd, utf8, size);
 	}
 
 	/* step4 */
-	if (*need_flush) {
+	if (edit->need_clear) {
 		logging(DEBUG, "do flush...\n");
-		*need_flush = false;
-		remove_all_chars(current);
-		remove_all_chars(next);
+		edit->need_clear = false;
+		edit->current.cursor = edit->next.cursor = (struct cursor_t){ .preedit = 0, .insert = 0 };
 	} else {
 		current->cursor = next->cursor;
-		/* let string as NUL terminate */
-		//current->cells[current->cursor.insert] = (uint32_t) '\0';
-		//next->cells[next->cursor.insert]       = (uint32_t) '\0';
 	}
 }

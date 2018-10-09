@@ -1,28 +1,29 @@
 /* functions for wide char (UCS2), multibyte char (UTF-8) conversion */
 /* ref:
- *	-	http://ja.m.wikipedia.org/wiki/UTF-8
- *	-	http://en.m.wikipedia.org/wiki/UTF-8
- *	-	http://www.azillionmonkeys.com/qed/unicode.html
+ * - http://ja.m.wikipedia.org/wiki/UTF-8
+ * - http://en.m.wikipedia.org/wiki/UTF-8
+ * - http://www.azillionmonkeys.com/qed/unicode.html
  */
 
 enum {
-	//UTF8_LEN_MAX          = 4,
-	MALFORMED_CHARACTER   = 0xFFFD,
-	CURSIVE_SQUARE_OFFSET = 0x60,
+	//UTF8_LEN_MAX               = 3,
+	UTF8_MALFORMED_CHARACTER   = 0xFFFD,
+	UTF8_CURSIVE_SQUARE_OFFSET = 0x60,
 };
 
 /*
- * from UCS2 to UTF-8
+ * from UCS2 to UTF-8 (only support codepoint between 0x0000 and 0xFFFF)
  * return length of UTF-8 sequence
  */
 int utf8_encode(uint32_t ucs, char utf8_buf[UTF8_LEN_MAX + 1])
 {
-	if ((0xD800 <= ucs && ucs <= 0xDFFF)    /* used as surrogate pair in UTF-16 */
+	if ((0xD800 <= ucs && ucs <= 0xDFFF)  /* used as surrogate pair in UTF-16 */
 		|| (0xFDD0 <= ucs && ucs <= 0xFDEF) /* Noncharacter */
 		|| ucs == 0xFFFE                    /* conflict byte order mark (U+FEFF) */
 		|| ucs == 0xFFFF                    /* Noncharacter U+FFFF ("useful for internal purposes as sentinels") */
 		|| ucs > 0xFFFF) {                  /* UCS2 (Unicode BMP): 0x0000 - 0xFFFF */
 		/* invalid codepoint */
+		logging(WARN, "utf8_encode(): illegal UCS2 codopoint (:U+%.4X)\n", ucs);
 		return -1;
 	}
 
@@ -45,11 +46,12 @@ int utf8_encode(uint32_t ucs, char utf8_buf[UTF8_LEN_MAX + 1])
 		utf8_buf[3] = '\0';
 		return 3;
 	}
-	/* illegal codepoint */
-	return -1;
+
+	logging(FATAL, "utf8_encode(): never reach here!\n");
+	exit(EXIT_FAILURE);
 }
 
-/* 
+/*
  * from UTF-8 to UCS2
  * return length of read sequence
  */
@@ -108,8 +110,8 @@ int utf8_decode(const char *utf8_str, uint32_t *ucs)
 			following_byte = 5;
 			count = 0;
 		} else { /* 0xFE - 0xFF: not used in UTF-8 */
-			*ucs = MALFORMED_CHARACTER;
-			return count + 1;
+			*ucs = UTF8_MALFORMED_CHARACTER;
+			return -1;
 		}
 
 		if (count >= following_byte) {
@@ -124,31 +126,45 @@ int utf8_decode(const char *utf8_str, uint32_t *ucs)
 				|| (0xFDD0 <= code && code <= 0xFDEF)
 				|| ((code & 0xFFFF) == 0xFFFE || (code & 0xFFFF) == 0xFFFF)
 				|| (code > 0x10FFFF)) {
-				*ucs = MALFORMED_CHARACTER;
-				return count + 1;
+				*ucs = UTF8_MALFORMED_CHARACTER;
+				return -1;
 			} else {
 				*ucs = code;
 				return count + 1;
 			}
 		}
 	}
-	return MALFORMED_CHARACTER;
+
+	logging(FATAL, "utf8_decode(): never reach here!\n");
+	exit(EXIT_FAILURE);
 }
 
-void toggle_cursive_square(struct line_t *line)
+uint32_t convert_cursive_square(uint32_t ucs2)
 {
 	/*
 	 * ref: http://ja.m.wikipedia.org/wiki/Unicode%E4%B8%80%E8%A6%A7_3000-3FFF
 	 * ref: http://www.mwsoft.jp/programming/other/convert_hiragana_katakana.html
 	 */
+	if ((0x3041 <= ucs2 && ucs2 <= 0x3096) || (0x309D <= ucs2 && ucs2 <= 0x309F))
+		return ucs2 + UTF8_CURSIVE_SQUARE_OFFSET;
+	else if ((0x30A1 <= ucs2 && ucs2 <= 0x30F6) || (0x30FD <= ucs2 && ucs2 <= 0x30FF))
+		return ucs2 - UTF8_CURSIVE_SQUARE_OFFSET;
+	else
+		return ucs2;
+}
+
+/*
+void toggle_cursive_square(struct line_t *line)
+{
 	logging(DEBUG, "toggle cursive <---> square\n");
-	/* line->cells[0] is mark_cook, so skip it */
+	// line->cells[0] is mark_cook, so skip it
 	for (int i = 1; i < line->cursor.insert; i++) {
 		if ((0x3041 <= line->cells[i] && line->cells[i] <= 0x3096)
 			|| (0x309D <= line->cells[i] && line->cells[i] <= 0x309F))
-			line->cells[i] = line->cells[i] + CURSIVE_SQUARE_OFFSET;
+			line->cells[i] = line->cells[i] + UTF8_CURSIVE_SQUARE_OFFSET;
 		else if ((0x30A1 <= line->cells[i] && line->cells[i] <= 0x30F6)
 			|| (0x30FD <= line->cells[i] && line->cells[i] <= 0x30FF))
-			line->cells[i] = line->cells[i] - CURSIVE_SQUARE_OFFSET;
+			line->cells[i] = line->cells[i] - UTF8_CURSIVE_SQUARE_OFFSET;
 	}
 }
+*/

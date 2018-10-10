@@ -81,7 +81,7 @@ void line_show(struct line_t *line)
 	fprintf(stderr, "cursor insert:%d preedit:%d\n", line->cursor.insert, line->cursor.preedit);
 
 	if (line->cursor.insert == 0) {
-		fprintf(stderr, "| (nul) |\n");
+		fprintf(stderr, "| (null) |\n");
 		return;
 	}
 
@@ -260,11 +260,11 @@ void line_update(struct line_t *current, struct line_t *next, bool *need_flush, 
 	 * step1: check first different character between currentline and nextline
 	 *
 	 * current line (what you see on your displayed now):
-	 * | a | b | c | d | e | (nul) |
+	 * | a | b | c | d | e | (null) |
 	 *                         ^
 	 *                         | current line cursor (index:5)
 	 * next line:
-	 * | a | b | d | e |(nul) |
+	 * | a | b | d | e | (null) |
 	 *           ^        ^
 	 *           |        | next line cursor (index:4)
 	 *           | first different char (index:2)
@@ -311,7 +311,7 @@ void line_update(struct line_t *current, struct line_t *next, bool *need_flush, 
 	/* step3 */
 	logging(DEBUG, "update current line from %d to %d\n", pos, next->cursor.insert - 1);
 	for (; pos < next->cursor.insert; pos++) {
-		current->cells[pos] = next->cells[pos]; /* uposdate current line buffer */
+		current->cells[pos] = next->cells[pos]; /* update current line buffer */
 		if ((size = utf8_encode(next->cells[pos], utf)) > 0)
 			ewrite(fd, utf, size);
 	}

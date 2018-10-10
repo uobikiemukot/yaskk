@@ -223,7 +223,7 @@ pid_t eforkpty(int *amaster, char *name,
 		/* XXX: this ioctl may fail in Mac OS X
 			ref http://www.opensource.apple.com/source/Libc/Libc-825.25/util/pty.c?txt */
 		if (ioctl(slave, TIOCSCTTY, NULL))
-			logging(WARN, "ioctl: TIOCSCTTY faild\n");
+			logging(WARN, "ioctl: TIOCSCTTY failed\n");
 		close(slave);
 
 		return 0;

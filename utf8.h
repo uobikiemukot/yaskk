@@ -18,9 +18,9 @@ enum {
 int utf8_encode(uint32_t ucs, char utf8_buf[UTF8_LEN_MAX + 1])
 {
 	if ((0xD800 <= ucs && ucs <= 0xDFFF)    /* used as surrogate pair in UTF-16 */
-		|| (0xFDD0 <= ucs && ucs <= 0xFDEF) /* Noncharacter */
+		|| (0xFDD0 <= ucs && ucs <= 0xFDEF) /* Non-character */
 		|| ucs == 0xFFFE                    /* conflict byte order mark (U+FEFF) */
-		|| ucs == 0xFFFF                    /* Noncharacter U+FFFF ("useful for internal purposes as sentinels") */
+		|| ucs == 0xFFFF                    /* Non-character U+FFFF ("useful for internal purposes as sentinels") */
 		|| ucs > 0xFFFF) {                  /* UCS2 (Unicode BMP): 0x0000 - 0xFFFF */
 		/* invalid codepoint */
 		return -1;

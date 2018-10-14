@@ -152,7 +152,7 @@ struct dict_entry_t *dict_search(struct dict_t *dict, const char *keyword, int l
 
 	while (lower <= upper) {
 		median = (lower + upper) / 2;
-		//logging(DEBUG, "lower:%u upeer:%u median:%u\n", lower, upper, median);
+		//logging(DEBUG, "lower:%u upper:%u median:%u\n", lower, upper, median);
 
 		assert(0 <= median && median < dict->table_size);
 		assert(dict->table[median].keyword);
